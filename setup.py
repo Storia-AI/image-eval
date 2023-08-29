@@ -1,8 +1,10 @@
 from setuptools import setup
 
+
 def readfile(filename):
     with open(filename, 'r+') as f:
         return f.read()
+
 
 setup(
     name="image-eval",

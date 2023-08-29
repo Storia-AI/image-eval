@@ -1,10 +1,11 @@
 import abc
 
-from PIL import Image
-from torchmetrics.multimodal.clip_score import CLIPScore
+import numpy as np
 import torch
+from torchmetrics.multimodal.clip_score import CLIPScore
 
 torch.manual_seed(42)
+
 
 class BaseReferenceFreeEvaluator(abc.ABC):
     """
@@ -12,7 +13,7 @@ class BaseReferenceFreeEvaluator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def evaluate(self, images: list[Image], prompts: list[str]):
+    def evaluate(self, images: list[np.array], prompts: list[str]):
         pass
 
 
@@ -20,6 +21,7 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self):
         self.evaluator = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16")
 
-    def evaluate(self, images: list[Image], prompts: list[str]):
-        pass
-
+    def evaluate(self, images: list[np.array], prompts: list[str]):
+        torch_imgs = [torch.tensor(img) for img in images]
+        self.evaluator.update(torch_imgs, prompts)
+        return self.evaluator.compute()
