@@ -25,3 +25,6 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
         torch_imgs = [torch.tensor(img) for img in images]
         self.evaluator.update(torch_imgs, prompts)
         return self.evaluator.compute()
+
+
+

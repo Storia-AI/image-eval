@@ -12,7 +12,12 @@ from evaluators import CLIPScoreEvaluator
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 METRIC_NAME_TO_EVALUATOR = {
-    "clip_score": CLIPScoreEvaluator
+    "clip_score": {
+        "evaluator": CLIPScoreEvaluator,
+        "description ": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
+                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
+                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
+    }
 }
 
 
@@ -29,12 +34,17 @@ def read_args():
                         required=True)
     parser.add_argument("--available-metrics",
                         help="description of all the available metrics and a synopsis of their properties",
-                        type=str)
+                        action="store_true")
     return parser.parse_args()
 
 
 def main():
     args = read_args()
+    if args.available_metrics:
+        metric_descr = []
+        for metric, info in METRIC_NAME_TO_EVALUATOR.items():
+            metric_descr.append([metric.replace("_", " "), info["description"]])
+        tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="orgtbl")
 
     # Get mapping from images to prompts
     with open(args.prompts) as f:
@@ -55,7 +65,7 @@ def main():
     # Compute all metrics
     for metric in metrics:
         try:
-            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]
+            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
         except:
             logging.error(f"Provided metric {metric} does not exist")
             continue
