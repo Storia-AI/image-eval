@@ -17,12 +17,16 @@ METRIC_NAME_TO_EVALUATOR = {
     "clip_score": {
         "evaluator": CLIPScoreEvaluator,
         "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
-                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
-                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
+                       "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
+                       "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
     "inception_score": {
         "evaluator": InceptionScoreEvaluator,
-        "description": "This metrics corresponds "
+        "description": "This metrics uses the Inception V3 model to compute class probabilities for generated images. "
+                       "and then calculates the KL divergence between the marginal distribution of the class "
+                       "probabilities and the conditional distribution of the class probabilities given the generated "
+                       "images. The score is bound between 1 and the number of classes supported by the classification "
+                       "model. For more info, check out https://arxiv.org/abs/1606.03498"
     }
 }
 
