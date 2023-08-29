@@ -4,19 +4,25 @@ import logging
 import os
 
 import numpy as np
+import torch
 from PIL import Image
 from tabulate import tabulate
 
 from evaluators import CLIPScoreEvaluator
+from evaluators import InceptionScoreEvaluator
 
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 METRIC_NAME_TO_EVALUATOR = {
     "clip_score": {
         "evaluator": CLIPScoreEvaluator,
-        "description ": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
+        "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
                         "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                         "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
+    },
+    "inception_score": {
+        "evaluator": InceptionScoreEvaluator,
+        "description": "This metrics corresponds "
     }
 }
 
@@ -44,7 +50,7 @@ def main():
         metric_descr = []
         for metric, info in METRIC_NAME_TO_EVALUATOR.items():
             metric_descr.append([metric.replace("_", " "), info["description"]])
-        tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="orgtbl")
+        print(tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="grid"))
 
     # Get mapping from images to prompts
     with open(args.prompts) as f:
@@ -70,7 +76,10 @@ def main():
             logging.error(f"Provided metric {metric} does not exist")
             continue
         computed_metric = metric_evaluator().evaluate(images, list(data.values()))
-        computed_metrics.append([metric.replace("_", " "), computed_metric.item()])
+        if isinstance(computed_metric, torch.Tensor):
+            computed_metrics.append([metric.replace("_", " "), computed_metric.item()])
+        elif isinstance(computed_metric, tuple):
+            computed_metrics.append([metric.replace("_", " "), [metric.item() for metric in computed_metric]])
 
     # Print all results
     print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))

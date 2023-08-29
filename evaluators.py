@@ -2,6 +2,7 @@ import abc
 
 import numpy as np
 import torch
+from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
 
 torch.manual_seed(42)
@@ -27,4 +28,11 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
         return self.evaluator.compute()
 
 
+class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
+    def __init__(self):
+        self.evaluator = InceptionScore()
 
+    def evaluate(self, images: list[np.array], ignored_prompts: list[str]):
+        torch_imgs = torch.stack([torch.tensor(img) for img in images])
+        self.evaluator.update(torch_imgs)
+        return self.evaluator.compute()
