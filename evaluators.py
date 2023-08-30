@@ -2,6 +2,7 @@ import abc
 
 import numpy as np
 import torch
+from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
 
@@ -15,6 +16,16 @@ class BaseReferenceFreeEvaluator(abc.ABC):
 
     @abc.abstractmethod
     def evaluate(self, images: list[np.array], prompts: list[str]):
+        pass
+
+
+class BaseWithReferenceEvaluator(abc.ABC):
+    """
+    An evaluation that includes gold samples to compare against.
+    """
+
+    @abc.abstractmethod
+    def evaluate(self, generated_images: list[np.array], real_images: list[np.array]):
         pass
 
 
@@ -36,3 +47,27 @@ class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
         torch_imgs = torch.stack([torch.tensor(img) for img in images])
         self.evaluator.update(torch_imgs)
         return self.evaluator.compute()
+
+
+class FIDEvaluator(BaseWithReferenceEvaluator):
+    def __init__(self):
+        self.evaluator64 = FrechetInceptionDistance(feature=64)
+        self.evaluator192 = FrechetInceptionDistance(feature=192)
+        self.evaluator768 = FrechetInceptionDistance(feature=768)
+        self.evaluator2048 = FrechetInceptionDistance(feature=2048)
+
+    def evaluate(self, generated_images: list[np.array], real_images: list[str]):
+        torch_gen_imgs = torch.stack([torch.tensor(img) for img in generated_images])
+        torch_real_imgs = torch.stack([torch.tensor(img) for img in real_images])
+        self.evaluator64.update(torch_gen_imgs, real=False)
+        self.evaluator64.update(torch_real_imgs, real=True)
+        self.evaluator192.update(torch_gen_imgs, real=False)
+        self.evaluator192.update(torch_real_imgs, real=True)
+        self.evaluator768.update(torch_gen_imgs, real=False)
+        self.evaluator768.update(torch_real_imgs, real=True)
+        self.evaluator2048.update(torch_gen_imgs, real=False)
+        self.evaluator2048.update(torch_real_imgs, real=True)
+        return (self.evaluator64.compute(),
+                self.evaluator192.compute(),
+                self.evaluator768.compute(),
+                self.evaluator2048.compute())
