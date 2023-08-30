@@ -3,7 +3,8 @@
   - FID
   - CLIPScore
   - InceptionScore
-
+- Add ability to log to wandb when using programmatic approach
+- Ensure it runs on GPU
 
 # Notes
 - [https://huyenchip.com/2023/08/16/llm-research-open-challenges.html](https://huyenchip.com/2023/08/16/llm-research-open-challenges.html)
