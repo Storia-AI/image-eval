@@ -1,4 +1,3 @@
-image-eval==0.1
 pip-chill==1.0.3
 piq==0.8.0
 tabulate==0.9.0
