@@ -78,9 +78,7 @@ def main():
         print(tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="grid"))
         return
 
-    # Get mapping from images to prompts
-    with open(args.prompts) as f:
-        data = json.load(f)
+
 
     generated_images = get_images_from_dir(args.generated_images)
 
@@ -96,6 +94,9 @@ def main():
             continue
         evaluator = metric_evaluator()
         if isinstance(evaluator, BaseReferenceFreeEvaluator):
+            # Get mapping from images to prompts
+            with open(args.prompts) as f:
+                data = json.load(f)
             computed_metric = evaluator.evaluate(generated_images, list(data.values()))
         elif isinstance(evaluator, BaseWithReferenceEvaluator):
             real_images = get_images_from_dir(args.real_images)

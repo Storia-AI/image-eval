@@ -6,6 +6,8 @@
 - Add ability to log to wandb when using programmatic approach
 - Ensure it runs on GPU
 
+# Roadmap
+
 # Notes
 - [https://huyenchip.com/2023/08/16/llm-research-open-challenges.html](https://huyenchip.com/2023/08/16/llm-research-open-challenges.html)
    - https://blog.yenniejun.com/p/all-languages-are-not-created-tokenized
