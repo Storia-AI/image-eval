@@ -78,8 +78,6 @@ def main():
         print(tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="grid"))
         return
 
-
-
     generated_images = get_images_from_dir(args.generated_images)
 
     # Parse str list of metrics
