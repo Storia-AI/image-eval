@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from evaluators import BaseReferenceFreeEvaluator
+from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator
 from evaluators import BaseWithReferenceEvaluator
 from evaluators import CLIPScoreEvaluator
 from evaluators import FIDEvaluator
@@ -38,6 +38,11 @@ METRIC_NAME_TO_EVALUATOR = {
                        "the summary statistics of these gaussians. A lower score is better with a 0 being a perfect "
                        "score indicating identical groups of images. This metric computes a distance for features"
                        "derived from the 64, 192, 768, and 2048 feature layers. For more info, check out https://arxiv.org/abs/1512.00567"
+    },
+    "aesthetic_predictor": {
+        "evaluator": AestheticPredictorEvaluator,
+        "description": "This metrics trains a model to predict an aesthetic score using a multilayer perceptron"
+                       "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings"
     }
 }
 
@@ -58,14 +63,17 @@ def read_args():
     return parser.parse_args()
 
 
-def get_images_from_dir(dir_path: str):
+def get_images_from_dir(dir_path: str, convert_to_arr: bool = True):
     images = []
     for image in os.listdir(dir_path):
         full_image_path = os.path.join(dir_path, image)
         pil_image = Image.open(full_image_path).convert("RGB")
-        np_arr = np.asarray(pil_image)
-        # Transpose the image arr so that channel is first dim
-        images.append(np_arr.transpose(2, 0, 1))
+        if convert_to_arr:
+            np_arr = np.asarray(pil_image)
+            # Transpose the image arr so that channel is first dim
+            images.append(np_arr.transpose(2, 0, 1))
+        else:
+            images.append(pil_image)
     return images
 
 
@@ -91,7 +99,12 @@ def main():
             logging.error(f"Provided metric {metric} does not exist")
             continue
         evaluator = metric_evaluator()
-        if isinstance(evaluator, BaseReferenceFreeEvaluator):
+        if isinstance(evaluator, AestheticPredictorEvaluator):
+            with open(args.prompts) as f:
+                data = json.load(f)
+            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)
+            computed_metric = evaluator.evaluate(generated_images, list(data.values()))
+        elif isinstance(evaluator, BaseReferenceFreeEvaluator):
             # Get mapping from images to prompts
             with open(args.prompts) as f:
                 data = json.load(f)
@@ -103,6 +116,8 @@ def main():
             computed_metrics.append([metric, computed_metric.item()])
         elif isinstance(computed_metric, tuple):
             computed_metrics.append([metric, [metric.item() for metric in computed_metric]])
+        elif isinstance(computed_metric, float):
+            computed_metrics.append([metric, computed_metric])
 
     # Print all results
     print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))
