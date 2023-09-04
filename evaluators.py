@@ -1,5 +1,6 @@
 import abc
 
+import ImageReward as RM
 import PIL
 import numpy as np
 import torch
@@ -78,7 +79,16 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
     def evaluate(self, images: list[PIL.Image], ignored_prompts: list[str]):
-        resp = run_inference(images)
-        print(type(resp))
-        return resp
+        return run_inference(images)
 
+
+class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
+    def __init__(self):
+        self.evaluator = RM.load("ImageReward-v1.0")
+
+    def evaluate(self, images: list[PIL.Image], prompts: list[str]):
+        # Returns the average image reward
+        rewards = []
+        for image, prompt in zip(images, prompts):
+            rewards.append(self.evaluator.score(prompt, image))
+        return sum(rewards) / len(rewards)

@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator
+from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator
 from evaluators import BaseWithReferenceEvaluator
 from evaluators import CLIPScoreEvaluator
 from evaluators import FIDEvaluator
@@ -43,6 +43,12 @@ METRIC_NAME_TO_EVALUATOR = {
         "evaluator": AestheticPredictorEvaluator,
         "description": "This metrics trains a model to predict an aesthetic score using a multilayer perceptron"
                        "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings"
+    },
+    "image_reward": {
+        "evaluator": ImageRewardEvaluator,
+        "description": "This metrics trains a model to predict image rewards using a dataset of human preferences for images."
+                       "Each reward is intended to output a value sampled from a Gaussian with 0 mean and stddev 1. For more details"
+                       "check out https://arxiv.org/pdf/2304.05977.pdf"
     }
 }
 
@@ -99,7 +105,8 @@ def main():
             logging.error(f"Provided metric {metric} does not exist")
             continue
         evaluator = metric_evaluator()
-        if isinstance(evaluator, AestheticPredictorEvaluator):
+        # TODO (mihail): Figure out whether the input to all evalutors can just be PIL.Image
+        if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator):
             with open(args.prompts) as f:
                 data = json.load(f)
             generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)

@@ -1,5 +1,4 @@
 import PIL
-import numpy as np
 import torch
 import pytorch_lightning as pl
 import torch.nn as nn
@@ -8,6 +7,10 @@ import torch.nn.functional as F
 import clip
 
 from PIL import Image
+
+"""
+Adapted from https://github.com/christophschuhmann/improved-aesthetic-predictor/tree/main
+"""
 
 #####  This script will predict the aesthetic score for this image file:
 

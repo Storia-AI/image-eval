@@ -1,6 +1,7 @@
+clip==1.0
+image-reward==1.5
 pip-chill==1.0.3
 piq==0.8.0
+pytorch-lightning==2.0.8
 tabulate==0.9.0
 torch-fidelity==0.3.0
-torchmetrics==1.1.0
-transformers==4.32.1
