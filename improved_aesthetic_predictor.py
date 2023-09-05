@@ -103,10 +103,3 @@ def run_inference(images: list[Image]):
         avg_aesthetic_score += prediction.item()
 
     return avg_aesthetic_score / len(images)
-
-images = ["/Users/mihaileric/Documents/code/image-eval/fixture/images/480749_dog in slacks _xl-1024-v1-0.png"]
-imgs = []
-for img_path in images:
-    imgs.append(Image.open(img_path).convert("RGB"))
-
-run_inference(imgs)
