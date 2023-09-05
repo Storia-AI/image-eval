@@ -1,5 +1,4 @@
 import json
-import os
 import random
 from collections import Counter
 from collections import defaultdict
