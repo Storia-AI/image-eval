@@ -1,0 +1,10 @@
+[
+  {
+    "model_1": "/home/venus/Documents/code/image-eval/fixture/images/480749_dog in slacks _xl-1024-v1-0.png",
+    "model_2": "/home/venus/Documents/code/image-eval/fixture/real_images/115758_scenic hilltop_cyberpunk _xl-1024-v1-0.png"
+  },
+  {
+    "model_1": "/home/venus/Documents/code/image-eval/fixture/images/598129_zebra in a suit_ _xl-1024-v1-0.png",
+    "model_2": "/home/venus/Documents/code/image-eval/fixture/real_images/384054_Tasty tacos filled with seasoned beef_fresh salsa_xl-1024-v1-0.png"
+  }
+]
