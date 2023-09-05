@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 
 import numpy as np
 import torch
@@ -14,6 +15,7 @@ from evaluators import BaseWithReferenceEvaluator
 from evaluators import CLIPScoreEvaluator
 from evaluators import FIDEvaluator
 from evaluators import InceptionScoreEvaluator
+from streamlit.web import cli as stcli
 
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -71,6 +73,11 @@ def read_args():
     parser.add_argument("--available-metrics",
                         help="description of all the available metrics and a synopsis of their properties",
                         action="store_true")
+    parser.add_argument("--local-human-eval",
+                        help="run a local instance of streamlit for human evaluation",
+                        action="store_true")
+    parser.add_argument("--model-predictions-json",
+                        help="path to json file containing model predictions")
     return parser.parse_args()
 
 
@@ -95,6 +102,12 @@ def main():
         for metric, info in METRIC_NAME_TO_EVALUATOR.items():
             metric_descr.append([metric, info["description"]])
         print(tabulate(metric_descr, headers=["Metric Name", "Description"], tablefmt="grid"))
+        return
+
+    if args.local_human_eval:
+        assert args.model_predictions_json is not None, "Must provide model predictions json"
+        sys.argv = ["streamlit", "run", "local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
+        sys.exit(stcli.main())
         return
 
     generated_images = get_images_from_dir(args.generated_images)
