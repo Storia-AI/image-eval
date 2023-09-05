@@ -1,3 +1,4 @@
+import argparse
 import json
 import random
 from collections import Counter
@@ -5,6 +6,10 @@ from collections import defaultdict
 
 import streamlit as st
 from PIL import Image
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--model-predictions", "-m", help="path to json file containing model predictions")
+args = parser.parse_args()
 
 
 def get_model_predictions_from_file(json_file: str) -> dict:
@@ -20,7 +25,7 @@ def get_model_predictions_from_file(json_file: str) -> dict:
     return model_preds
 
 
-model_preds = get_model_predictions_from_file("/home/venus/Documents/code/image-eval/fixture/model_comparisons.json")
+model_preds = get_model_predictions_from_file(args.model_predictions)
 images_1 = model_preds["model_1"]
 images_2 = model_preds["model_2"]
 
@@ -60,7 +65,6 @@ def update_images_displayed():
         # Increment model wins
         if st.session_state.curr_idx < len(images_1):
             if selected_option == "**A**":
-                print(st.session_state.model_a_assignments, st.session_state.curr_idx)
                 st.session_state.model_wins[st.session_state.model_a_assignments[st.session_state.curr_idx]] += 1
             else:
                 if st.session_state.model_a_assignments[st.session_state.curr_idx] == "model_1":
