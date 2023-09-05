@@ -1,9 +1,12 @@
 import abc
+import os
 
 import ImageReward as RM
 import PIL
+import clip
 import numpy as np
 import torch
+from PIL import Image
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
@@ -12,6 +15,7 @@ from improved_aesthetic_predictor import run_inference
 
 torch.manual_seed(42)
 
+# TODO (mihail): Decouple this so not all evaluators are in the same file
 
 class BaseReferenceFreeEvaluator(abc.ABC):
     """
@@ -92,3 +96,40 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
         for image, prompt in zip(images, prompts):
             rewards.append(self.evaluator.score(prompt, image))
         return sum(rewards) / len(rewards)
+
+
+class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
+    def __init__(self):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model, preprocess = clip.load("ViT-L/14", device=device)
+        # Get the base directory of this file
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models/align_sd/hpc.pt")
+        if torch.cuda.is_available():
+            params = torch.load(model_path)['state_dict']
+        else:
+            params = torch.load(model_path, map_location=device)['state_dict']
+        model.load_state_dict(params)
+        self.model = model
+        self.preprocess = preprocess
+
+    def evaluate(self, images: list[PIL.Image], prompts: list[str]):
+        # Returns the average human preference score
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        scores = []
+        # TODO (mihail): Batch the inputs for faster processing
+        for pil_img, prompt in zip(images, prompts):
+            image = self.preprocess(pil_img).unsqueeze(0).to(device)
+            text = clip.tokenize([prompt]).to(device)
+            with torch.no_grad():
+                image_features = self.model.encode_image(image)
+                text_features = self.model.encode_text(text)
+
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+                hps = image_features @ text_features.T
+                hps = hps.diagonal()
+                scores.append(hps.squeeze().tolist())
+
+        return sum(scores) / len(scores)

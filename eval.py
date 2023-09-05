@@ -8,7 +8,8 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator
+from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator, \
+    HumanPreferenceScoreEvaluator
 from evaluators import BaseWithReferenceEvaluator
 from evaluators import CLIPScoreEvaluator
 from evaluators import FIDEvaluator
@@ -49,6 +50,10 @@ METRIC_NAME_TO_EVALUATOR = {
         "description": "This metrics trains a model to predict image rewards using a dataset of human preferences for images."
                        "Each reward is intended to output a value sampled from a Gaussian with 0 mean and stddev 1. For more details"
                        "check out https://arxiv.org/pdf/2304.05977.pdf"
+    },
+    "human_preference_score": {
+        "evaluator": HumanPreferenceScoreEvaluator,
+        "description": "This metric outputs an estimate of the human preference for an image based on the paper"
     }
 }
 
@@ -106,7 +111,8 @@ def main():
             continue
         evaluator = metric_evaluator()
         # TODO (mihail): Figure out whether the input to all evalutors can just be PIL.Image
-        if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator):
+        if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator) \
+                or isinstance(evaluator, HumanPreferenceScoreEvaluator):
             with open(args.prompts) as f:
                 data = json.load(f)
             generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)

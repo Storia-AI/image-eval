@@ -5,6 +5,7 @@
   - InceptionScore
 - Add ability to log to wandb when using programmatic approach
 - Ensure it runs on GPU
+- Add a download models step first 
 
 # Roadmap
 
