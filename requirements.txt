@@ -1,4 +1,4 @@
-clip==1.0
+#pip install git+https://github.com/openai/CLIP.git
 image-reward==1.5
 pip-chill==1.0.3
 piq==0.8.0
