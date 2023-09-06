@@ -133,4 +133,3 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
                 scores.append(hps.squeeze().tolist())
 
         return sum(scores) / len(scores)
-    
