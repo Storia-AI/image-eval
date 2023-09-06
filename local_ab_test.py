@@ -11,7 +11,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--model-predictions-json", help="path to json file containing model predictions")
 args = parser.parse_args()
 
-# TODO (mihail): Add prompts to UI?
 
 def get_model_predictions_from_file(json_file: str) -> dict:
     model_preds = defaultdict(list)
@@ -26,12 +25,24 @@ def get_model_predictions_from_file(json_file: str) -> dict:
     return model_preds
 
 
+def get_prompts_from_file(json_file: str):
+    prompts = []
+    with open(json_file) as f:
+        data = json.load(f)
+        for d in data:
+            if "prompt" in d:
+                prompts.append(d["prompt"])
+    return prompts
+
+
 model_preds = get_model_predictions_from_file(args.model_predictions_json)
 images_1 = model_preds["model_1"]
 images_2 = model_preds["model_2"]
 
+prompts = get_prompts_from_file(args.model_predictions_json)
 
-def assign_images():
+
+def assign_images_and_prompt():
     # Randomly assign one image to be A
     image_1 = images_1[st.session_state.curr_idx]
     image_2 = images_2[st.session_state.curr_idx]
@@ -49,6 +60,9 @@ def assign_images():
     st.session_state.image_a = image_a
     st.session_state.image_b = image_b
 
+    if len(prompts) > 0:
+        st.session_state.prompt = prompts[st.session_state.curr_idx]
+
 
 # Initialize session state
 if "curr_idx" not in st.session_state:
@@ -58,7 +72,7 @@ if "curr_idx" not in st.session_state:
     st.session_state.model_wins = Counter()
     st.session_state.wins_str = ""
 if "image_a" not in st.session_state:
-    assign_images()
+    assign_images_and_prompt()
 
 
 def update_images_displayed():
@@ -77,7 +91,7 @@ def update_images_displayed():
     if st.session_state.curr_idx >= len(images_1):
         st.session_state.click_disabled = True
     else:
-        assign_images()
+        assign_images_and_prompt()
 
 
 def compute_scores_and_dump():
@@ -98,6 +112,8 @@ with col2:
 st.write(
     f"Processing {st.session_state.curr_idx + 1 if not st.session_state.click_disabled else st.session_state.curr_idx} "
     f"/ {len(images_1)} images")
+st.write(f"Prompt: ***{prompts[st.session_state.curr_idx]}***" if len(prompts) > 0 else "")
+
 # Select choice for buttons
 selected_option = st.radio("Which image do you prefer?", ["**A**", "**B**"], horizontal=True)
 
