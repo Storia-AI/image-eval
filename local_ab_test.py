@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--model-predictions-json", help="path to json file containing model predictions")
 args = parser.parse_args()
 
+# TODO (mihail): Add prompts to UI?
 
 def get_model_predictions_from_file(json_file: str) -> dict:
     model_preds = defaultdict(list)
@@ -26,7 +27,6 @@ def get_model_predictions_from_file(json_file: str) -> dict:
 
 
 model_preds = get_model_predictions_from_file(args.model_predictions_json)
-#model_preds = get_model_predictions_from_file("/home/venus/Documents/code/image-eval/fixture/model_comparisons.json")
 images_1 = model_preds["model_1"]
 images_2 = model_preds["model_2"]
 
