@@ -111,10 +111,9 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
 class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        model, preprocess = clip.load("ViT-L/14", device=device)
+        model, preprocess = clip.load("ViT-L/14", device=self.device)
         # Get the base directory of this file
         model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models/align_sd/hpc.pt")
-        # TODO (mihail): Move to cuda device if available
         if torch.cuda.is_available():
             params = torch.load(model_path)['state_dict']
         else:
@@ -125,13 +124,11 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
 
     def evaluate(self, images: list[PIL.Image], prompts: list[str]):
         # Returns the average human preference score
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
         scores = []
         # TODO (mihail): Batch the inputs for faster processing
         for pil_img, prompt in zip(images, prompts):
-            image = self.preprocess(pil_img).unsqueeze(0).to(device)
-            text = clip.tokenize([prompt]).to(device)
+            image = self.preprocess(pil_img).unsqueeze(0).to(self.device)
+            text = clip.tokenize([prompt]).to(self.device)
             with torch.no_grad():
                 image_features = self.model.encode_image(image)
                 text_features = self.model.encode_text(text)

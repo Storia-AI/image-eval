@@ -39,7 +39,7 @@ METRIC_NAME_TO_EVALUATOR = {
         "evaluator": FIDEvaluator,
         "description": "This metrics uses the Inception V3 model to compute a multivariate gaussian for a set of real images"
                        "as well as a multivariate gaussian for a set of fake images. A distance is then computed using "
-                       "the summary statistics of these gaussians. A lower score is better with a 0 being a perfect "
+                       "the summary statistics of these Gaussians. A lower score is better with a 0 being a perfect "
                        "score indicating identical groups of images. This metric computes a distance for features"
                        "derived from the 64, 192, 768, and 2048 feature layers. For more info, check out https://arxiv.org/abs/1512.00567"
     },
@@ -56,7 +56,8 @@ METRIC_NAME_TO_EVALUATOR = {
     },
     "human_preference_score": {
         "evaluator": HumanPreferenceScoreEvaluator,
-        "description": "This metric outputs an estimate of the human preference for an image based on the paper"
+        "description": "This metric outputs an estimate of the human preference for an image based on the paper https://tgxs002.github.io/align_sd_web/"
+                       "The metric is bound between -100 and 100 with 100 being the best score."
     }
 }
 
