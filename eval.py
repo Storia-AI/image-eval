@@ -46,7 +46,8 @@ METRIC_NAME_TO_EVALUATOR = {
     "aesthetic_predictor": {
         "evaluator": AestheticPredictorEvaluator,
         "description": "This metrics trains a model to predict an aesthetic score using a multilayer perceptron"
-                       "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings"
+                       "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings."
+                       "A larger score indicates a better model."
     },
     "image_reward": {
         "evaluator": ImageRewardEvaluator,

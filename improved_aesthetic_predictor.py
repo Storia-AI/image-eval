@@ -70,7 +70,7 @@ def normalized(a, axis=-1, order=2):
     return a / np.expand_dims(l2, axis)
 
 
-def run_inference(images: list[Image]):
+def run_inference(images: list[Image], device: str):
     model = MLP(768)  # CLIP embedding dim is 768 for CLIP ViT L 14
     # load the model you trained previously or the model available in this repo
     model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models/sac+logos+ava1-l14-linearMSE.pth")
@@ -81,11 +81,9 @@ def run_inference(images: list[Image]):
 
     model.load_state_dict(s)
 
-    if torch.cuda.is_available():
-        model.to("cuda")
+    model.to(device)
     model.eval()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     model2, preprocess = clip.load("ViT-L/14", device=device)  # RN50x64
     avg_aesthetic_score = 0
     for pil_image in images:

@@ -91,8 +91,11 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
 
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
+    def __init__(self, device: str):
+        super().__init__(device)
+
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
-        return run_inference(images)
+        return run_inference(images, self.device)
 
 
 class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
