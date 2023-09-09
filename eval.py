@@ -32,7 +32,8 @@ METRIC_NAME_TO_EVALUATOR = {
                        "and then calculates the KL divergence between the marginal distribution of the class "
                        "probabilities and the conditional distribution of the class probabilities given the generated "
                        "images. The score is bound between 1 and the number of classes supported by the classification "
-                       "model. For more info, check out https://arxiv.org/abs/1606.03498"
+                       "model. The score is computed on random splits of the data so both a mean and standard deviation "
+                       "are reported. For more info, check out https://arxiv.org/abs/1606.03498"
     },
     "fid": {
         "evaluator": FIDEvaluator,
@@ -115,6 +116,7 @@ def main():
     # Parse str list of metrics
     metrics = args.metrics.split(",")
     computed_metrics = []
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     # Compute all metrics
     for metric in metrics:
         try:
@@ -122,19 +124,19 @@ def main():
         except:
             logging.error(f"Provided metric {metric} does not exist")
             continue
-        evaluator = metric_evaluator()
+        evaluator = metric_evaluator(device)
         # TODO (mihail): Figure out whether the input to all evalutors can just be PIL.Image
         if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator) \
                 or isinstance(evaluator, HumanPreferenceScoreEvaluator):
             with open(args.prompts) as f:
-                data = json.load(f)
+                prompts = json.load(f)
             generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)
-            computed_metric = evaluator.evaluate(generated_images, list(data.values()))
+            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseReferenceFreeEvaluator):
             # Get mapping from images to prompts
             with open(args.prompts) as f:
-                data = json.load(f)
-            computed_metric = evaluator.evaluate(generated_images, list(data.values()))
+                prompts = json.load(f)
+            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseWithReferenceEvaluator):
             real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
