@@ -32,20 +32,22 @@ METRIC_NAME_TO_EVALUATOR = {
                        "and then calculates the KL divergence between the marginal distribution of the class "
                        "probabilities and the conditional distribution of the class probabilities given the generated "
                        "images. The score is bound between 1 and the number of classes supported by the classification "
-                       "model. For more info, check out https://arxiv.org/abs/1606.03498"
+                       "model. The score is computed on random splits of the data so both a mean and standard deviation "
+                       "are reported. For more info, check out https://arxiv.org/abs/1606.03498"
     },
     "fid": {
         "evaluator": FIDEvaluator,
         "description": "This metrics uses the Inception V3 model to compute a multivariate gaussian for a set of real images"
                        "as well as a multivariate gaussian for a set of fake images. A distance is then computed using "
-                       "the summary statistics of these gaussians. A lower score is better with a 0 being a perfect "
+                       "the summary statistics of these Gaussians. A lower score is better with a 0 being a perfect "
                        "score indicating identical groups of images. This metric computes a distance for features"
                        "derived from the 64, 192, 768, and 2048 feature layers. For more info, check out https://arxiv.org/abs/1512.00567"
     },
     "aesthetic_predictor": {
         "evaluator": AestheticPredictorEvaluator,
         "description": "This metrics trains a model to predict an aesthetic score using a multilayer perceptron"
-                       "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings"
+                       "trained from the AVA dataset (http://refbase.cvc.uab.es/files/MMP2012a.pdf) using CLIP input embeddings."
+                       "A larger score indicates a better model."
     },
     "image_reward": {
         "evaluator": ImageRewardEvaluator,
@@ -55,7 +57,8 @@ METRIC_NAME_TO_EVALUATOR = {
     },
     "human_preference_score": {
         "evaluator": HumanPreferenceScoreEvaluator,
-        "description": "This metric outputs an estimate of the human preference for an image based on the paper"
+        "description": "This metric outputs an estimate of the human preference for an image based on the paper https://tgxs002.github.io/align_sd_web/"
+                       "The metric is bound between -100 and 100 with 100 being the best score."
     }
 }
 
@@ -115,6 +118,7 @@ def main():
     # Parse str list of metrics
     metrics = args.metrics.split(",")
     computed_metrics = []
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     # Compute all metrics
     for metric in metrics:
         try:
@@ -122,19 +126,19 @@ def main():
         except:
             logging.error(f"Provided metric {metric} does not exist")
             continue
-        evaluator = metric_evaluator()
+        evaluator = metric_evaluator(device)
         # TODO (mihail): Figure out whether the input to all evalutors can just be PIL.Image
         if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator) \
                 or isinstance(evaluator, HumanPreferenceScoreEvaluator):
             with open(args.prompts) as f:
-                data = json.load(f)
+                prompts = json.load(f)
             generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)
-            computed_metric = evaluator.evaluate(generated_images, list(data.values()))
+            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseReferenceFreeEvaluator):
             # Get mapping from images to prompts
             with open(args.prompts) as f:
-                data = json.load(f)
-            computed_metric = evaluator.evaluate(generated_images, list(data.values()))
+                prompts = json.load(f)
+            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseWithReferenceEvaluator):
             real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
