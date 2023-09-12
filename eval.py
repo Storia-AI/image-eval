@@ -111,7 +111,6 @@ def main():
         assert args.model_predictions_json is not None, "Must provide model predictions json"
         sys.argv = ["streamlit", "run", "local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
         sys.exit(stcli.main())
-        return
 
     generated_images = get_images_from_dir(args.generated_images)
 
@@ -127,7 +126,7 @@ def main():
             logging.error(f"Provided metric {metric} does not exist")
             continue
         evaluator = metric_evaluator(device)
-        # TODO (mihail): Figure out whether the input to all evalutors can just be PIL.Image
+        # TODO (mihail): Figure out whether the input to all evaluators can just be PIL.Image
         if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator) \
                 or isinstance(evaluator, HumanPreferenceScoreEvaluator):
             with open(args.prompts) as f:
