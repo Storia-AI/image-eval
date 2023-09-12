@@ -84,7 +84,7 @@ def run_inference(images: list[Image], device: str):
     model.to(device)
     model.eval()
 
-    model2, preprocess = clip.load("ViT-L/14", device=device)  # RN50x64
+    model2, preprocess = clip.load("ViT-L/14", device=device)
     avg_aesthetic_score = 0
     for pil_image in images:
         image = preprocess(pil_image).unsqueeze(0).to(device)

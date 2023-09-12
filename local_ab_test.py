@@ -104,11 +104,14 @@ def compute_scores_and_dump():
 
 
 # Display images
-col1, col2 = st.columns(2)
-with col1:
-    st.image(st.session_state.image_a, caption="Model A")
-with col2:
-    st.image(st.session_state.image_b, caption="Model B")
+if not st.session_state.click_disabled:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(st.session_state.image_a, caption="Model A")
+    with col2:
+        st.image(st.session_state.image_b, caption="Model B")
+else:
+    st.write("No more images left to process!")
 
 # Note about how many images have been processed
 st.markdown(
