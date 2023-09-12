@@ -10,15 +10,15 @@ setup(
     name="image-eval",
     version="0.1",
     description="",
-    long_description=readfile('README.md'),
+    long_description=readfile("README.md"),
     author="Storia AI",
-    author_email="mihail@storia.ai",
+    author_email="mihail@storia.ai/julia@storia.ai",
     url="",
-    py_modules=['eval'],
-    license=readfile('LICENSE'),
+    py_modules=["eval"],
+    license=readfile("LICENSE"),
     entry_points={
-        'console_scripts': [
-            'image_eval= eval:main'
+        "console_scripts": [
+            "image_eval= eval:main"
         ]
     },
 )

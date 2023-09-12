@@ -1,13 +1,28 @@
-# TODO
-- metrics to implement
-  - FID
-  - CLIPScore
-  - InceptionScore
-- Add ability to log to wandb when using programmatic approach
-- Ensure it runs on GPU
-- Add a download models step first in the README
 
-# Roadmap
+## What is this?
+
+## So, why should I care?
+
+
+
+## Installation
+
+
+## Usage
+
+### CLI
+
+
+### Programmatic
+
+## Contributing
+
+
+
+
+## Roadmap
+- [ ] Make it easy to launch remote human evaluation task using [AWS Groundtruth](https://aws.amazon.com/sagemaker/data-labeling/)
+- [ ] Add ability to log metrics to [wandb](https://wandb.ai/site)
 
 
 # Notes
@@ -54,3 +69,6 @@
     - break prompt down into disjoint assertion sets
   - https://github.com/layer6ai-labs/dgm-eval
     - library of evaluation metrics
+
+# TODO
+- Add a download models step first in the README

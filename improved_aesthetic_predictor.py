@@ -12,9 +12,9 @@ from PIL import Image
 
 """
 Adapted from https://github.com/christophschuhmann/improved-aesthetic-predictor/tree/main
-"""
 
-#####  This script will predict the aesthetic score for this image file:
+This script will predict the aesthetic score for provided image files.
+"""
 
 # If you changed the MLP architecture during training, change it also here:
 class MLP(pl.LightningModule):
