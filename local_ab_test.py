@@ -103,20 +103,55 @@ def compute_scores_and_dump():
                                 f"Model 2 wins %: {model_2_wins * 100}"
 
 
-col1, col2 = st.columns(2)
 # Display images
-with col1:
-    st.image(st.session_state.image_a, caption="Model A")
+if not st.session_state.click_disabled:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(st.session_state.image_a, caption="Model A")
+    with col2:
+        st.image(st.session_state.image_b, caption="Model B")
+else:
+    st.write("No more images left to process!")
+
+# Note about how many images have been processed
+st.markdown(
+    """
+    <style>
+        div[data-testid="column"]:nth-of-type(3)
+        {
+            text-align: end;
+        } 
+    </style>
+    """, unsafe_allow_html=True
+)
+col1, col2, col3 = st.columns(3)
+with col1, col2:
+    pass
+with col3:
+    st.markdown(
+        f"*Processing {st.session_state.curr_idx + 1 if not st.session_state.click_disabled else st.session_state.curr_idx}/{len(images_1)} images*")
+
+# Prompt provided to image gen systems
+col1, col2, col3 = st.columns(3)
+with col1, col3:
+    pass
 with col2:
-    st.image(st.session_state.image_b, caption="Model B")
-st.write(
-    f"Processing {st.session_state.curr_idx + 1 if not st.session_state.click_disabled else st.session_state.curr_idx} "
-    f"/ {len(images_1)} images")
-st.write(f"Prompt: ***{prompts[st.session_state.curr_idx]}***" if len(prompts) > 0 else "")
+    st.write(f"Prompt: ***{prompts[st.session_state.curr_idx]}***" if (
+            len(prompts) > 0 and not st.session_state.click_disabled) else "")
 
-# Select choice for buttons
-selected_option = st.radio("Which image do you prefer?", ["**A**", "**B**"], horizontal=True)
+# Question to evaluate
+col1, col2, col3 = st.columns([1, 3, 1])
+with col1, col3:
+    pass
+with col2:
+    # Select choice for buttons
+    selected_option = st.radio("Which image is more visually consistent with the prompt?", ["**A**", "**B**"],
+                               horizontal=True)
 
-st.button("Submit", type="primary", on_click=update_images_displayed, disabled=st.session_state.click_disabled)
-st.button("Compute Model Wins", type="primary", on_click=compute_scores_and_dump)
+# Buttons to submit and compute win %s
+col1, col2, col3 = st.columns([3, 1, 1.5])
+with col3:
+    st.button("Submit", type="secondary", on_click=update_images_displayed, disabled=st.session_state.click_disabled)
+    st.button("Compute Model Wins", type="secondary", on_click=compute_scores_and_dump)
+
 st.write(f"{st.session_state.wins_str}")
