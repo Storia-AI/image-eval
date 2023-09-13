@@ -162,9 +162,3 @@ For examples of how our current metrics implement this contract, see `evaluators
 ### Roadmap
 - [ ] Make it easy to launch remote human evaluation task using [AWS Groundtruth](https://aws.amazon.com/sagemaker/data-labeling/)
 - [ ] Add ability to log metrics to [WandB](https://wandb.ai/site)
-
-
-
-
-# TODO
-- Add a download models step first in the README
