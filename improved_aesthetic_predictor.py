@@ -1,13 +1,10 @@
 import os
 
-import PIL
-import torch
+import clip
 import pytorch_lightning as pl
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import clip
-
 from PIL import Image
 
 """
@@ -15,6 +12,7 @@ Adapted from https://github.com/christophschuhmann/improved-aesthetic-predictor/
 
 This script will predict the aesthetic score for provided image files.
 """
+
 
 # If you changed the MLP architecture during training, change it also here:
 class MLP(pl.LightningModule):
@@ -25,17 +23,13 @@ class MLP(pl.LightningModule):
         self.ycol = ycol
         self.layers = nn.Sequential(
             nn.Linear(self.input_size, 1024),
-            # nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(1024, 128),
-            # nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(128, 64),
-            # nn.ReLU(),
             nn.Dropout(0.1),
 
             nn.Linear(64, 16),
-            # nn.ReLU(),
 
             nn.Linear(16, 1)
         )
