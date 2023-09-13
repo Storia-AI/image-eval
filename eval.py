@@ -81,6 +81,8 @@ def read_args():
                         action="store_true")
     parser.add_argument("--model-predictions-json",
                         help="path to json file containing model predictions")
+    parser.add_argument("--model-dir",
+                        help="models base directory for aesthetic_predictor and human_preference_score models")
     return parser.parse_args()
 
 
@@ -113,6 +115,9 @@ def main():
         sys.exit(stcli.main())
 
     generated_images = get_images_from_dir(args.generated_images)
+    if "aesthetic_predictor" in args.metrics or "human_preference_score" in args.metrics:
+        assert args.model_dir is not None, "Must provide model dir if using aesthetic_predictor or human_preference_score"
+        os.environ["MODELS_DIR"] = args.model_dir
 
     # Parse str list of metrics
     metrics = args.metrics.split(",")

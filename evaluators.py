@@ -115,8 +115,7 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
         model, preprocess = clip.load("ViT-L/14", device=self.device)
-        # Get the base directory of this file
-        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models/align_sd/hpc.pt")
+        model_path = os.path.join(os.environ["MODELS_DIR"], "human_preference_score/hpc.pt")
         if torch.cuda.is_available():
             params = torch.load(model_path)['state_dict']
         else:
