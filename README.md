@@ -10,8 +10,8 @@
 | aesthetic_predictor    |  6.03433  |
 | image_reward           | -0.661022 |
 | human_preference_score |  0.196004 |
-| fid                    | [11.214, 57.471, 4.10, 442.811] |
-| inception_score        | [1.0, 0.0] |
+| fid                    | \[11.214, 57.471, 4.10, 442.811\] |
+| inception_score        | \[1.0, 0.0\] |
 
 ![](assets/human_eval.gif)
 
