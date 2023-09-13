@@ -12,7 +12,7 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
 
-from improved_aesthetic_predictor import run_inference
+from image_eval.improved_aesthetic_predictor import run_inference
 
 torch.manual_seed(42)
 

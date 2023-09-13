@@ -13,19 +13,19 @@
 | fid                    | \[11.214, 57.471, 4.10, 442.811\] |
 | inception_score        | \[1.0, 0.0\] |
 
-![](assets/human_eval.gif)
+![Human eval](assets/human_eval.gif)
 
 ## So, why should I care?
 
 Since the advent of systems such as [Stable Diffusion](https://stability.ai/blog/stable-diffusion-public-release), [Midjourney](https://www.midjourney.com/home/), and [DallE-2](https://openai.com/dall-e-2) text-to-image generation  
-systems have taken the world by storm.
+models have taken the world by storm.
 
 However, evaluation of the quality of these systems still remains one of the
 hardest challenges in continuing to improve them as there is a lack of standardization and robust tooling.
 
 If we can't all agree on a set of practices for evaluating these systems, how can we push the state-of-the-art?
 
-This library provides a suite of widely accepted metrics for evaluating these systems as well as an easy-to-use interface for performing human
+This library provides a suite of widely accepted metrics for evaluating them as well as an easy-to-use interface for performing human
 evaluation of image generation model outputs.
 
 ## Cute, but what are you actually doing?
@@ -43,15 +43,20 @@ We also provide a simple and ready-to-use [Streamlit](https://streamlit.io/) int
 
 ## Installation
 
-Installing the library is as simple as running:
+This library has been tested on Python 3.9.12. Installing the library involves running:
 ```
 pip install image-eval
+pip install git+https://github.com/openai/CLIP.git # A dependency some metrics require
+```
+
+Optionally, if you have a CUDA-enabled device, install the [version of PyTorch](https://pytorch.org/get-started/previous-versions/) that matches your CUDA version. For CUDA 11.3, that might look like:
+```
+pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
 ```
 
 NOTE: If you want to use the `aesthetic_predictor` and `human_preference_score` metrics, you will need to download the respective model weights.
 
-We require
-having a `models` folder and then having a separate subfolder for `aesthetic_predictor` and `human_preference_score` with the downloaded weights.
+We require having a `models` folder and then having a separate subfolder for `aesthetic_predictor` and `human_preference_score` with the downloaded weights.
 
 For `aesthetic_predictor` you can download the weights of the model [here](https://github.com/christophschuhmann/improved-aesthetic-predictor/blob/main/sac%2Blogos%2Bava1-l14-linearMSE.pth).
 
@@ -99,7 +104,7 @@ If you want to calculate a metric assessing the match between generated images a
 image_eval -m fid -g /path/to/generated/images -r /path/to/real/images
 ```
 
-For some metrics you may need to specify additional arguments. For example, if you want to use the `aesthetic_predictor` or `human_preference_score` metrics, you would invoke:
+Some metrics may need you to specify additional arguments. For example, if you want to use the `aesthetic_predictor` or `human_preference_score` metrics, you would invoke:
 ```
 image_eval -m aesthetic_predictor -p /path/to/image_to_prompt.json -g /path/to/generated/images --model-dir /path/to/folder/with/models
 ```
@@ -135,14 +140,16 @@ where `model_1` and `model_2` are the keys for the paths to image outputs for th
 
 An interface should launch in your browser at `http://localhost:8501`.
 
+NOTE: When you click `Compute Model Wins` a local file named `scores.json` will be created in the directory from which you launched the CLI.
+
 ### Programmatic
 
 You can also interact with the library through the API directly. For example if you want to invoke the `clip_score` metric, you would do the following:
 ```
-from evaluators import CLIPScoreEvaluator
+from image_eval.evaluators import CLIPScoreEvaluator
 
 evaluator = CLIPScoreEvaluator(device="cpu") # or "cuda" if you have a GPU-enabled device
-images = [np.randint(0, 255, (224, 224, 3)) for _ in range(10)] # list of 10 images
+images = [np.randint(0, 255, (224, 224, 3)) for _ in range(10)] # list of 10 random images
 prompts = ["random prompt" * 10]
 evaluator.evaluate(images, prompts)
 ```

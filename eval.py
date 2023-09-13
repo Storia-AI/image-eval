@@ -9,12 +9,12 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator, \
+from image_eval.evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator, \
     HumanPreferenceScoreEvaluator
-from evaluators import BaseWithReferenceEvaluator
-from evaluators import CLIPScoreEvaluator
-from evaluators import FIDEvaluator
-from evaluators import InceptionScoreEvaluator
+from image_eval.evaluators import BaseWithReferenceEvaluator
+from image_eval.evaluators import CLIPScoreEvaluator
+from image_eval.evaluators import FIDEvaluator
+from image_eval.evaluators import InceptionScoreEvaluator
 from streamlit.web import cli as stcli
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -111,7 +111,8 @@ def main():
 
     if args.local_human_eval:
         assert args.model_predictions_json is not None, "Must provide model predictions json"
-        sys.argv = ["streamlit", "run", "local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
+        lib_folder = os.path.dirname(os.path.realpath(__file__))
+        sys.argv = ["streamlit", "run", f"{lib_folder}/image_eval/local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
         sys.exit(stcli.main())
 
     generated_images = get_images_from_dir(args.generated_images)
