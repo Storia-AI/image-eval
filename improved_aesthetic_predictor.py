@@ -28,9 +28,7 @@ class MLP(pl.LightningModule):
             nn.Dropout(0.2),
             nn.Linear(128, 64),
             nn.Dropout(0.1),
-
             nn.Linear(64, 16),
-
             nn.Linear(16, 1)
         )
 
