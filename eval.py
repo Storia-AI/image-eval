@@ -17,7 +17,7 @@ from evaluators import FIDEvaluator
 from evaluators import InceptionScoreEvaluator
 from streamlit.web import cli as stcli
 
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 METRIC_NAME_TO_EVALUATOR = {
     "clip_score": {
@@ -37,7 +37,7 @@ METRIC_NAME_TO_EVALUATOR = {
     },
     "fid": {
         "evaluator": FIDEvaluator,
-        "description": "This metrics uses the Inception V3 model to compute a multivariate gaussian for a set of real images"
+        "description": "This metrics uses the Inception V3 model to compute a multivariate Gaussian for a set of real images"
                        "as well as a multivariate gaussian for a set of fake images. A distance is then computed using "
                        "the summary statistics of these Gaussians. A lower score is better with a 0 being a perfect "
                        "score indicating identical groups of images. This metric computes a distance for features"
@@ -120,6 +120,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Compute all metrics
     for metric in metrics:
+        logging.info(f"Computing metric {metric}...")
         try:
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
         except:

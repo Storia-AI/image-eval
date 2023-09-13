@@ -9,11 +9,10 @@ def readfile(filename):
 setup(
     name="image-eval",
     version="0.1",
-    description="",
+    description="A library for evaluating image generation models",
     long_description=readfile("README.md"),
     author="Storia AI",
-    author_email="mihail@storia.ai/julia@storia.ai",
-    url="",
+    author_email="mihail@storia.ai",
     py_modules=["eval"],
     license=readfile("LICENSE"),
     entry_points={
