@@ -60,7 +60,7 @@ We require having a `models` folder and then having a separate subfolder for `ae
 
 For `aesthetic_predictor` you can download the weights of the model [here](https://github.com/christophschuhmann/improved-aesthetic-predictor/blob/main/sac%2Blogos%2Bava1-l14-linearMSE.pth).
 
-For `human_preference_score` you can download the weights of the model [here](https://mycuhk-my.sharepoint.com/personal/1155172150_link_cuhk_edu_hk/_layouts/15/onedrive.aspx?id=%2Fpersonal%2F1155172150%5Flink%5Fcuhk%5Fedu%5Fhk%2FDocuments%2FHPS%2Fhpc%2Ept&parent=%2Fpersonal%2F1155172150%5Flink%5Fcuhk%5Fedu%5Fhk%2FDocuments%2FHPS&ga=1).
+For `human_preference_score` you can download the weights of the model [here](https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW).
 
 Your `models` folder should then have this structure:
 ```
