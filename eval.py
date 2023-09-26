@@ -16,6 +16,7 @@ from image_eval.evaluators import CLIPScoreEvaluator
 from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import InceptionScoreEvaluator
 from streamlit.web import cli as stcli
+from typing import Dict
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -86,9 +87,13 @@ def read_args():
     return parser.parse_args()
 
 
-def get_images_from_dir(dir_path: str, convert_to_arr: bool = True):
+def get_images_from_dir(dir_path: str, convert_to_arr: bool = True, prompts: Dict[str, str] = None):
     images = []
+    skipped_count = 0
     for image in os.listdir(dir_path):
+        if prompts and not image in prompts.keys():
+            skipped_count += 1
+            continue
         full_image_path = os.path.join(dir_path, image)
         pil_image = Image.open(full_image_path).convert("RGB")
         if convert_to_arr:
@@ -97,6 +102,9 @@ def get_images_from_dir(dir_path: str, convert_to_arr: bool = True):
             images.append(np_arr.transpose(2, 0, 1))
         else:
             images.append(pil_image)
+
+    if skipped_count > 0:
+        logging.warning(f"Evaluating only images with corresponding prompts. Included {len(images)} images, skipped {skipped_count}.")
     return images
 
 
@@ -120,8 +128,12 @@ def main():
         assert args.model_dir is not None, "Must provide model dir if using aesthetic_predictor or human_preference_score"
         os.environ["MODELS_DIR"] = args.model_dir
 
+    if "fid" in args.metrics:
+        assert args.real_images, "Must provide --real-images if using fid"
+
     # Parse str list of metrics
     metrics = args.metrics.split(",")
+
     computed_metrics = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Compute all metrics
@@ -138,12 +150,13 @@ def main():
                 or isinstance(evaluator, HumanPreferenceScoreEvaluator):
             with open(args.prompts) as f:
                 prompts = json.load(f)
-            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False)
+            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False, prompts=prompts)
             computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseReferenceFreeEvaluator):
             # Get mapping from images to prompts
             with open(args.prompts) as f:
                 prompts = json.load(f)
+            generated_images = get_images_from_dir(args.generated_images, prompts=prompts)
             computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseWithReferenceEvaluator):
             real_images = get_images_from_dir(args.real_images)
