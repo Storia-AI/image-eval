@@ -9,7 +9,7 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from image_eval.evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, ImageRewardEvaluator, \
+from image_eval.evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, CLIPSimilarityEvaluator, ImageRewardEvaluator, \
     HumanPreferenceScoreEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
@@ -23,6 +23,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 METRIC_NAME_TO_EVALUATOR = {
     "clip_score": {
         "evaluator": CLIPScoreEvaluator,
+        "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
+                       "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
+                       "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
+    },
+    "clip_similarity": {
+        "evaluator": CLIPSimilarityEvaluator,
         "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
@@ -90,7 +96,7 @@ def read_args():
 def get_images_from_dir(dir_path: str, convert_to_arr: bool = True, prompts: Dict[str, str] = None):
     images = []
     skipped_count = 0
-    for image in os.listdir(dir_path):
+    for image in sorted(os.listdir(dir_path)):
         if prompts and not image in prompts.keys():
             skipped_count += 1
             continue
@@ -159,7 +165,9 @@ def main():
             generated_images = get_images_from_dir(args.generated_images, prompts=prompts)
             computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
         elif isinstance(evaluator, BaseWithReferenceEvaluator):
-            real_images = get_images_from_dir(args.real_images)
+            conver_to_arr = isinstance(evaluator, CLIPSimilarityEvaluator)
+            real_images = get_images_from_dir(args.real_images, convert_to_arr=conver_to_arr)
+            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=conver_to_arr)
             computed_metric = evaluator.evaluate(generated_images, real_images)
         if isinstance(computed_metric, torch.Tensor):
             computed_metrics.append([metric, computed_metric.item()])

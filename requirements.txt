@@ -1,6 +1,7 @@
 image-reward==1.5
 lpips==0.1.4
 networkx==3.1
+numpy
 piq==0.8.0
 pytorch-lightning==2.0.8
 streamlit==1.26.0
