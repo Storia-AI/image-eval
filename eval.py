@@ -23,15 +23,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 METRIC_NAME_TO_EVALUATOR = {
     "clip_score": {
         "evaluator": CLIPScoreEvaluator,
-        "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
+        "description": "This metric corresponds to the cosine similarity between the visual CLIP embedding for "
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
     "clip_similarity": {
         "evaluator": CLIPSimilarityEvaluator,
-        "description": "This metrics corresponds to the cosine similarity between the visual CLIP embedding for "
-                       "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
-                       "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
+        "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
+                       "and the generated images. The metric relies on CLIP embeddings. The score is bound between 0 and 1, "
+                       "with 1 being the best score. The purpose of the metric is to measure how in-style generated images are."
     },
     "inception_score": {
         "evaluator": InceptionScoreEvaluator,
