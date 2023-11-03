@@ -8,9 +8,11 @@ import clip
 import numpy as np
 import torch
 from PIL import Image
+from sklearn.metrics.pairwise import cosine_similarity
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
+from transformers import CLIPProcessor, CLIPModel
 
 from image_eval.improved_aesthetic_predictor import run_inference
 
@@ -39,7 +41,7 @@ class BaseWithReferenceEvaluator(abc.ABC):
         self.device = device
 
     @abc.abstractmethod
-    def evaluate(self, generated_images: list[np.array], real_images: list[np.array]):
+    def evaluate(self, generated_images: list[Union[np.array, Image.Image]], real_images: list[Union[np.array, Image.Image]]):
         pass
 
 
@@ -52,6 +54,27 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
         torch_imgs = [torch.tensor(img).to(self.device) for img in images]
         self.evaluator.update(torch_imgs, prompts)
         return self.evaluator.compute()
+
+
+class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
+    def __init__(self, device: str):
+        super().__init__(device)
+        model_name = "openai/clip-vit-base-patch16"
+        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
+        self.processor = CLIPProcessor.from_pretrained(model_name)
+
+    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
+        """Returns the average similarity between the generated images and the center of the cluster defined by real images."""
+        generated_images_inputs = self.processor(text=None, images=generated_images, return_tensors="pt", padding=True)
+        generated_images_embeddings = self.model.get_image_features(**generated_images_inputs)
+
+        real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
+        real_images_embeddings = self.model.get_image_features(**real_images_inputs)
+
+        real_images_center = torch.mean(real_images_embeddings, axis=0)
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+        similarities = cos(real_images_center, generated_images_embeddings)
+        return torch.mean(similarities)
 
 
 class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
