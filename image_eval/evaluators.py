@@ -71,7 +71,7 @@ class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
         real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
         real_images_embeddings = self.model.get_image_features(**real_images_inputs)
 
-        real_images_center = torch.mean(real_images_embeddings, axis=0)
+        real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         similarities = cos(real_images_center, generated_images_embeddings)
         return torch.mean(similarities)
