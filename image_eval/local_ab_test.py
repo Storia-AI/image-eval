@@ -41,6 +41,15 @@ images_2 = model_preds["model_2"]
 
 prompts = get_prompts_from_file(args.model_predictions_json)
 
+# Question to evaluate
+col1, col2, col3 = st.columns([1, 3, 1])
+with col1, col3:
+    pass
+with col2:
+    # Select choice for buttons
+    selected_option = st.radio("Which image is more visually consistent with the prompt?", ["**A**", "**B**"],
+                               horizontal=True)
+
 
 def assign_images_and_prompt():
     # Randomly assign one image to be A
@@ -138,15 +147,6 @@ with col1, col3:
 with col2:
     st.write(f"Prompt: ***{prompts[st.session_state.curr_idx]}***" if (
             len(prompts) > 0 and not st.session_state.click_disabled) else "")
-
-# Question to evaluate
-col1, col2, col3 = st.columns([1, 3, 1])
-with col1, col3:
-    pass
-with col2:
-    # Select choice for buttons
-    selected_option = st.radio("Which image is more visually consistent with the prompt?", ["**A**", "**B**"],
-                               horizontal=True)
 
 # Buttons to submit and compute win %s
 col1, col2, col3 = st.columns([3, 1, 1.5])
