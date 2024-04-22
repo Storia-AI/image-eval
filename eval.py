@@ -9,12 +9,17 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from image_eval.evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, CLIPSimilarityEvaluator, ImageRewardEvaluator, \
-    HumanPreferenceScoreEvaluator
+from image_eval.evaluators import AestheticPredictorEvaluator
+from image_eval.evaluators import BaseReferenceFreeEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
+from image_eval.evaluators import CLIPSimilarityEvaluator
+from image_eval.evaluators import DinoV2SimilarityEvaluator
 from image_eval.evaluators import FIDEvaluator
+from image_eval.evaluators import HumanPreferenceScoreEvaluator
+from image_eval.evaluators import ImageRewardEvaluator
 from image_eval.evaluators import InceptionScoreEvaluator
+
 from streamlit.web import cli as stcli
 from typing import Dict
 
@@ -32,6 +37,10 @@ METRIC_NAME_TO_EVALUATOR = {
         "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
                        "and the generated images. The metric relies on CLIP embeddings. The score is bound between 0 and 1, "
                        "with 1 being the best score. The purpose of the metric is to measure how in-style generated images are."
+    },
+    "dino_v2_similarity": {
+        "evaluator": DinoV2SimilarityEvaluator,
+        "description": "Same as CLIPSimilarityEvaluator, but using Dino-V2 embeddings instead (https://arxiv.org/pdf/2304.07193.pdf).",
     },
     "inception_score": {
         "evaluator": InceptionScoreEvaluator,

@@ -9,7 +9,10 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
 from torchvision import transforms
-from transformers import CLIPProcessor, CLIPModel
+from transformers import AutoImageProcessor
+from transformers import Dinov2Model
+from transformers import CLIPModel
+from transformers import CLIPProcessor
 
 from image_eval.improved_aesthetic_predictor import run_inference
 
@@ -75,8 +78,30 @@ class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
         real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
 
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        similarities = cos(real_images_center, generated_images_center)
-        return torch.mean(similarities)
+        return cos(real_images_center, generated_images_center)
+
+
+class DinoV2SimilarityEvaluator(BaseWithReferenceEvaluator):
+    def __init__(self, device: str):
+        super().__init__(device)
+        model_name = "facebook/dinov2-base"
+        self.model = Dinov2Model.from_pretrained(model_name).to(self.device)
+        self.processor = AutoImageProcessor.from_pretrained(model_name)
+
+    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
+        """Returns the average similarity between the generated images and the center of the cluster defined by real images."""
+        generated_images_inputs = self.processor(text=None, images=generated_images, return_tensors="pt", padding=True)
+        generated_images_inputs = {k: v.to(self.device) for k, v in generated_images_inputs.items()}
+        generated_images_embeddings = self.model(**generated_images_inputs).pooler_output
+        generated_images_center = torch.mean(generated_images_embeddings, axis=0, keepdim=True)
+
+        real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
+        real_images_inputs = {k: v.to(self.device) for k, v in real_images_inputs.items()}
+        real_images_embeddings = self.model(**real_images_inputs).pooler_output
+        real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
+
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+        return cos(real_images_center, generated_images_center)
 
 
 class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
