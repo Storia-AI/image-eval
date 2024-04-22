@@ -1,17 +1,14 @@
 import abc
-import os
-from typing import Union
+from typing import Optional
 
 import ImageReward as RM
-import PIL
 import clip
-import numpy as np
 import torch
 from PIL import Image
-from sklearn.metrics.pairwise import cosine_similarity
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
+from torchvision import transforms
 from transformers import CLIPProcessor, CLIPModel
 
 from image_eval.improved_aesthetic_predictor import run_inference
@@ -25,11 +22,12 @@ class BaseReferenceFreeEvaluator(abc.ABC):
     """
     An evaluation that doesn't require gold samples to compare against.
     """
-    def __init__(self, device: str):
+    def __init__(self, device: str, model_path: Optional[str] = None):
         self.device = device
+        self.model_path = model_path
 
     @abc.abstractmethod
-    def evaluate(self, images: list[Union[np.array, Image.Image]], prompts: list[str]):
+    def evaluate(self, images: list[Image.Image], prompts: list[str]):
         pass
 
 
@@ -37,11 +35,12 @@ class BaseWithReferenceEvaluator(abc.ABC):
     """
     An evaluation that includes gold samples to compare against.
     """
-    def __init__(self, device: str):
+    def __init__(self, device: str, model_path: Optional[str] = None):
         self.device = device
+        self.model_path = model_path
 
     @abc.abstractmethod
-    def evaluate(self, generated_images: list[Union[np.array, Image.Image]], real_images: list[Union[np.array, Image.Image]]):
+    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
         pass
 
 
@@ -50,8 +49,8 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
         super().__init__(device)
         self.evaluator = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16").to(self.device)
 
-    def evaluate(self, images: list[np.array], prompts: list[str]):
-        torch_imgs = [torch.tensor(img).to(self.device) for img in images]
+    def evaluate(self, images: list[Image.Image], prompts: list[str]):
+        torch_imgs = [transforms.ToTensor()(img).to(self.device) for img in images]
         self.evaluator.update(torch_imgs, prompts)
         return self.evaluator.compute()
 
@@ -66,9 +65,11 @@ class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
     def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
         """Returns the average similarity between the generated images and the center of the cluster defined by real images."""
         generated_images_inputs = self.processor(text=None, images=generated_images, return_tensors="pt", padding=True)
+        generated_images_inputs = {k: v.to(self.device) for k, v in generated_images_inputs.items()}
         generated_images_embeddings = self.model.get_image_features(**generated_images_inputs)
 
         real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
+        real_images_inputs = {k: v.to(self.device) for k, v in real_images_inputs.items()}
         real_images_embeddings = self.model.get_image_features(**real_images_inputs)
 
         real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
@@ -82,8 +83,8 @@ class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
         super().__init__(device)
         self.evaluator = InceptionScore().to(self.device)
 
-    def evaluate(self, images: list[np.array], ignored_prompts: list[str]):
-        torch_imgs = torch.stack([torch.tensor(img).to(self.device) for img in images])
+    def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
+        torch_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device) for img in images])
         self.evaluator.update(torch_imgs)
         return self.evaluator.compute()
 
@@ -96,9 +97,16 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
         self.evaluator768 = FrechetInceptionDistance(feature=768).to(self.device).set_dtype(torch.float64)
         self.evaluator2048 = FrechetInceptionDistance(feature=2048).to(self.device).set_dtype(torch.float64)
 
-    def evaluate(self, generated_images: list[np.array], real_images: list[str]):
-        torch_gen_imgs = torch.stack([torch.tensor(img).to(self.device) for img in generated_images])
-        torch_real_imgs = torch.stack([torch.tensor(img).to(self.device) for img in real_images])
+    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
+        torch_gen_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device)
+                                      for img in generated_images])
+
+        # Real images (since they were not generated) might have various sizes. We'll resize them to the generated size.
+        gen_size = generated_images[0].size
+        real_images = [img.resize(gen_size) for img in real_images]
+        torch_real_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device)
+                                       for img in real_images])
+
         self.evaluator64.update(torch_gen_imgs, real=False)
         self.evaluator64.update(torch_real_imgs, real=True)
         self.evaluator192.update(torch_gen_imgs, real=False)
@@ -114,11 +122,11 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
 
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
-    def __init__(self, device: str):
-        super().__init__(device)
+    def __init__(self, device: str, model_path: str):
+        super().__init__(device, model_path)
 
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
-        return run_inference(images, self.device)
+        return run_inference(images, self.model_path, self.device)
 
 
 class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
@@ -135,19 +143,11 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
 
 
 class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
-    def __init__(self, device: str):
-        super().__init__(device)
-        model, preprocess = clip.load("ViT-L/14", device=self.device)
-        model_path = os.path.join(os.environ["MODELS_DIR"], "human_preference_score/hpc.pt")
-        if torch.cuda.is_available():
-            params = torch.load(model_path)['state_dict']
-        else:
-            params = torch.load(model_path, map_location=self.device)['state_dict']
-        model.load_state_dict(params)
-        self.model = model
-        self.preprocess = preprocess
+    def __init__(self, device: str, model_path: str):
+        super().__init__(device, model_path)
+        self.model, self.preprocess = clip.load("ViT-L/14", device=self.device)
 
-    def evaluate(self, images: list[PIL.Image], prompts: list[str]):
+    def evaluate(self, images: list[Image.Image], prompts: list[str]):
         # Returns the average human preference score
         scores = []
         # TODO (mihail): Batch the inputs for faster processing

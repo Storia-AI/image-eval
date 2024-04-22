@@ -1,4 +1,4 @@
-clip==0.2.0
+git+https://github.com/openai/CLIP.git
 image-reward==1.5
 lpips==0.1.4
 networkx==3.1

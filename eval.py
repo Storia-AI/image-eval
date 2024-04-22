@@ -2,9 +2,9 @@ import argparse
 import json
 import logging
 import os
+import requests
 import sys
 
-import numpy as np
 import torch
 from PIL import Image
 from tabulate import tabulate
@@ -72,10 +72,14 @@ METRIC_NAME_TO_EVALUATOR = {
 
 def read_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--metrics", "-m", help="what metrics to evaluate as comma-delimited str",
+    parser.add_argument("--metrics", "-m",
+                        default="all",
+                        help="what metrics to evaluate as comma-delimited str; if `all`, we compute all possible metrics given the specified flags",
                         type=str)
-    parser.add_argument("--generated-images", "-g", help="path to directory containing generated images to evaluate",
-                        type=str)
+    parser.add_argument("--generated-images", "-g",
+                        help="path to directory containing generated images to evaluate",
+                        type=str,
+                        required=True)
     parser.add_argument("--real-images", "-r", help="path to directory containing real images to use for evaluation",
                         type=str)
     parser.add_argument("--prompts", "-p", help="path to file containing mapping from image to associated prompt",
@@ -88,12 +92,19 @@ def read_args():
                         action="store_true")
     parser.add_argument("--model-predictions-json",
                         help="path to json file containing model predictions")
-    parser.add_argument("--model-dir",
-                        help="models base directory for aesthetic_predictor and human_preference_score models")
+    parser.add_argument("--aesthetic-predictor-model-url",
+                        default="https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth",
+                        help="Model checkpoint for the aesthetic predictor evaluator.")
+    parser.add_argument("--human-preference-score-model-url",
+                        default="https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW",
+                        help="Model checkpoint for the human preference score evaluator.")
+    parser.add_argument("--cache_dir",
+                        default="/tmp/image-eval",
+                        help="Path where to download any auxiliary models and data.")
     return parser.parse_args()
 
 
-def get_images_from_dir(dir_path: str, convert_to_arr: bool = True, prompts: Dict[str, str] = None):
+def get_images_from_dir(dir_path: str, prompts: Dict[str, str] = None):
     images = []
     skipped_count = 0
     for image in sorted(os.listdir(dir_path)):
@@ -101,17 +112,33 @@ def get_images_from_dir(dir_path: str, convert_to_arr: bool = True, prompts: Dic
             skipped_count += 1
             continue
         full_image_path = os.path.join(dir_path, image)
-        pil_image = Image.open(full_image_path).convert("RGB")
-        if convert_to_arr:
-            np_arr = np.asarray(pil_image)
-            # Transpose the image arr so that channel is first dim
-            images.append(np_arr.transpose(2, 0, 1))
-        else:
-            images.append(pil_image)
+        try:
+            pil_image = Image.open(full_image_path).convert("RGB")
+        except Exception:
+            # Ignore non-image files in this folder.
+            logging.warning(f"Cannot read image from {full_image_path}. Skipping.")
+            continue
+        images.append(pil_image)
 
     if skipped_count > 0:
         logging.warning(f"Evaluating only images with corresponding prompts. Included {len(images)} images, skipped {skipped_count}.")
     return images
+
+
+def download_model(url: str, output_path: str):
+    if os.path.exists(output_path):
+        return
+
+    logging.info(f"Downloading model from {url}...")
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    response = requests.get(url)
+    if not response.status_code == 200:
+        raise RuntimeError(f"Unable to download model from {url}.")
+
+    with open(output_path, "wb") as f:
+        f.write(response.content)
 
 
 def main():
@@ -129,10 +156,10 @@ def main():
         sys.argv = ["streamlit", "run", f"{lib_folder}/image_eval/local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
         sys.exit(stcli.main())
 
+    if args.metrics == "all":
+        args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
+
     generated_images = get_images_from_dir(args.generated_images)
-    if "aesthetic_predictor" in args.metrics or "human_preference_score" in args.metrics:
-        assert args.model_dir is not None, "Must provide model dir if using aesthetic_predictor or human_preference_score"
-        os.environ["MODELS_DIR"] = args.model_dir
 
     if "fid" in args.metrics:
         assert args.real_images, "Must provide --real-images if using fid"
@@ -150,25 +177,31 @@ def main():
         except:
             logging.error(f"Provided metric {metric} does not exist")
             continue
-        evaluator = metric_evaluator(device)
-        # TODO (mihail): Figure out whether the input to all evaluators can just be PIL.Image
-        if isinstance(evaluator, AestheticPredictorEvaluator) or isinstance(evaluator, ImageRewardEvaluator) \
-                or isinstance(evaluator, HumanPreferenceScoreEvaluator):
-            with open(args.prompts) as f:
-                prompts = json.load(f)
-            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=False, prompts=prompts)
-            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
-        elif isinstance(evaluator, BaseReferenceFreeEvaluator):
-            # Get mapping from images to prompts
+
+        if metric == "aesthetic_predictor":
+            model_path = os.path.join(args.cache_dir, "aesthetic_predictor/model.pth")
+            download_model(url=args.aesthetic_predictor_model_url, output_path=model_path)
+            evaluator = AestheticPredictorEvaluator(device, model_path)
+        elif metric == "human_preference_score":
+            model_path = os.path.join(args.cache_dir, "human_preference_score/model.pth")
+            download_model(url=args.human_preference_score_model_url, output_path=model_path)
+            evaluator = HumanPreferenceScoreEvaluator(device, model_path)
+        else:
+            evaluator = metric_evaluator(device)
+
+        if isinstance(evaluator, BaseReferenceFreeEvaluator):
+            if not args.prompts:
+                raise ValueError(f"Metric {metric} requires --prompts to be specified.")
             with open(args.prompts) as f:
                 prompts = json.load(f)
             generated_images = get_images_from_dir(args.generated_images, prompts=prompts)
             computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
-        elif isinstance(evaluator, BaseWithReferenceEvaluator):
-            conver_to_arr = isinstance(evaluator, CLIPSimilarityEvaluator)
-            real_images = get_images_from_dir(args.real_images, convert_to_arr=conver_to_arr)
-            generated_images = get_images_from_dir(args.generated_images, convert_to_arr=conver_to_arr)
+        else:
+            assert isinstance(evaluator, BaseWithReferenceEvaluator)
+            generated_images = get_images_from_dir(args.generated_images)
+            real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
+
         if isinstance(computed_metric, torch.Tensor):
             computed_metrics.append([metric, computed_metric.item()])
         elif isinstance(computed_metric, tuple):

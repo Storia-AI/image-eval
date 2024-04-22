@@ -62,10 +62,8 @@ def normalized(a, axis=-1, order=2):
     return a / np.expand_dims(l2, axis)
 
 
-def run_inference(images: list[Image], device: str):
+def run_inference(images: list[Image.Image], model_path: str, device: str):
     model = MLP(768)  # CLIP embedding dim is 768 for CLIP ViT L 14
-    # load the model you trained previously or the model available in this repo
-    model_path = os.path.join(os.environ["MODELS_DIR"], "aesthetic_predictor/sac+logos+ava1-l14-linearMSE.pth")
     if torch.cuda.is_available():
         s = torch.load(model_path)
     else:
