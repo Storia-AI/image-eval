@@ -13,12 +13,11 @@ from image_eval.evaluators import AestheticPredictorEvaluator
 from image_eval.evaluators import BaseReferenceFreeEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
-from image_eval.evaluators import CLIPSimilarityEvaluator
-from image_eval.evaluators import DinoV2SimilarityEvaluator
 from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import HumanPreferenceScoreEvaluator
 from image_eval.evaluators import ImageRewardEvaluator
 from image_eval.evaluators import InceptionScoreEvaluator
+from image_eval.evaluators import StyleSimilarityEvaluator
 from image_eval.evaluators import VendiScoreEvaluator
 
 from streamlit.web import cli as stcli
@@ -33,15 +32,11 @@ METRIC_NAME_TO_EVALUATOR = {
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
-    "clip_similarity": {
-        "evaluator": CLIPSimilarityEvaluator,
+    "style_similarity": {
+        "evaluator": StyleSimilarityEvaluator,
         "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
-                       "and the generated images. The metric relies on CLIP embeddings. The score is bound between 0 and 1, "
-                       "with 1 being the best score. The purpose of the metric is to measure how in-style generated images are."
-    },
-    "dino_v2_similarity": {
-        "evaluator": DinoV2SimilarityEvaluator,
-        "description": "Same as CLIPSimilarityEvaluator, but using Dino-V2 embeddings instead (https://arxiv.org/pdf/2304.07193.pdf).",
+                       "and the generated images. The score is bound between 0 and 1, with 1 being the best score. "
+                       "The purpose of the metric is to measure how in-style generated images are, compared to the real ones."
     },
     "inception_score": {
         "evaluator": InceptionScoreEvaluator,
@@ -79,7 +74,8 @@ METRIC_NAME_TO_EVALUATOR = {
     },
     "vendi_score": {
         "evaluator": VendiScoreEvaluator,
-        "description": "TODO",
+        "description": "This metric evaluates how diverse the generated image set is. We suggest generating all images with the same prompt."
+                       "See https://arxiv.org/abs/2210.02410.",
     }
 }
 

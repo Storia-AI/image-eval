@@ -9,13 +9,11 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
 from torchvision import transforms
-from transformers import AutoImageProcessor
-from transformers import Dinov2Model
-from transformers import CLIPModel
-from transformers import CLIPProcessor
 from vendi_score import vendi
 
 from image_eval.improved_aesthetic_predictor import run_inference
+from image_eval.encoders import CLIPEncoder
+from image_eval.encoders import DinoV2Encoder
 
 torch.manual_seed(42)
 
@@ -59,50 +57,23 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
         return {"clip_score": self.evaluator.compute()}
 
 
-class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
+class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        model_name = "openai/clip-vit-base-patch16"
-        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
-        self.processor = CLIPProcessor.from_pretrained(model_name)
+        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device)]
 
     def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
-        """Returns the average similarity between the generated images and the center of the cluster defined by real images."""
-        generated_images_inputs = self.processor(text=None, images=generated_images, return_tensors="pt", padding=True)
-        generated_images_inputs = {k: v.to(self.device) for k, v in generated_images_inputs.items()}
-        generated_images_embeddings = self.model.get_image_features(**generated_images_inputs)
-        generated_images_center = torch.mean(generated_images_embeddings, axis=0, keepdim=True)
-
-        real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
-        real_images_inputs = {k: v.to(self.device) for k, v in real_images_inputs.items()}
-        real_images_embeddings = self.model.get_image_features(**real_images_inputs)
-        real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
-
+        """Returns the average cosine similarity between the generated images and the center of the cluster defined by real images."""
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        return {"clip_similarity": cos(real_images_center, generated_images_center)}
+        results = {}
 
-
-class DinoV2SimilarityEvaluator(BaseWithReferenceEvaluator):
-    def __init__(self, device: str):
-        super().__init__(device)
-        model_name = "facebook/dinov2-base"
-        self.model = Dinov2Model.from_pretrained(model_name).to(self.device)
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
-
-    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
-        """Returns the average similarity between the generated images and the center of the cluster defined by real images."""
-        generated_images_inputs = self.processor(text=None, images=generated_images, return_tensors="pt", padding=True)
-        generated_images_inputs = {k: v.to(self.device) for k, v in generated_images_inputs.items()}
-        generated_images_embeddings = self.model(**generated_images_inputs).pooler_output
-        generated_images_center = torch.mean(generated_images_embeddings, axis=0, keepdim=True)
-
-        real_images_inputs = self.processor(text=None, images=real_images, return_tensors="pt", padding=True)
-        real_images_inputs = {k: v.to(self.device) for k, v in real_images_inputs.items()}
-        real_images_embeddings = self.model(**real_images_inputs).pooler_output
-        real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
-
-        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        return {"dino_v2_similarity": cos(real_images_center, generated_images_center)}
+        for encoder in self.encoders:
+            generated_embeddings = encoder.encode(generated_images)
+            generated_center = torch.mean(generated_embeddings, axis=0, keepdim=True)
+            real_embeddings = encoder.encode(real_images)
+            real_center = torch.mean(real_embeddings, axis=0, keepdim=True)
+            results[f"style_similarity_{encoder.id}"] = cos(generated_center, real_center)
+        return results
 
 
 class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
@@ -198,12 +169,11 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
 class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        model_name = "facebook/dinov2-base"
-        self.model = Dinov2Model.from_pretrained(model_name).to(self.device)
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
+        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device)]
 
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
-        images_inputs = self.processor(text=None, images=images, return_tensors="pt", padding=True)
-        images_inputs = {k: v.to(self.device) for k, v in images_inputs.items()}
-        images_embeddings = self.model(**images_inputs).pooler_output.cpu().detach().numpy()
-        return {"vendi_score_dino_v2": vendi.score_X(images_embeddings).item()}
+        results = {}
+        for encoder in self.encoders:
+            embeddings = encoder.encode(images).cpu().detach().numpy()
+            results[f"vendi_score_{encoder.id}"] = vendi.score_X(embeddings).item()
+        return results
