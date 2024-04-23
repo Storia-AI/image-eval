@@ -13,6 +13,7 @@ from vendi_score import vendi
 
 from image_eval.improved_aesthetic_predictor import run_inference
 from image_eval.encoders import CLIPEncoder
+from image_eval.encoders import ConvNeXtV2Encoder
 from image_eval.encoders import DinoV2Encoder
 
 torch.manual_seed(42)
@@ -60,7 +61,7 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
 class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device)]
+        self.encoders = [DinoV2Encoder(device), CLIPEncoder(device), ConvNeXtV2Encoder(device)]
 
     def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
         """Returns the average cosine similarity between the generated images and the center of the cluster defined by real images."""
@@ -169,7 +170,7 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
 class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device)]
+        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device), ConvNeXtV2Encoder(device)]
 
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
         results = {}
