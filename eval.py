@@ -216,14 +216,15 @@ def main():
             real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
 
-        if isinstance(computed_metric, torch.Tensor):
-            computed_metrics.append([metric, computed_metric.item()])
-        elif isinstance(computed_metric, tuple):
-            computed_metrics.append([metric, [metric.item() for metric in computed_metric]])
-        elif isinstance(computed_metric, float):
-            computed_metrics.append([metric, computed_metric])
-        else:
-            raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
+        for key, value in computed_metric.items():
+            if isinstance(value, torch.Tensor):
+                computed_metrics.append([key, value.item()])
+            elif isinstance(value, tuple):
+                computed_metrics.append([key, [metric.item() for metric in value]])
+            elif isinstance(value, float):
+                computed_metrics.append([key, value])
+            else:
+                raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
 
     # Print all results
     print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))

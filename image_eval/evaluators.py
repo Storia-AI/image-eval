@@ -56,7 +56,7 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
     def evaluate(self, images: list[Image.Image], prompts: list[str]):
         torch_imgs = [transforms.ToTensor()(img).to(self.device) for img in images]
         self.evaluator.update(torch_imgs, prompts)
-        return self.evaluator.compute()
+        return {"clip_score": self.evaluator.compute()}
 
 
 class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
@@ -79,7 +79,7 @@ class CLIPSimilarityEvaluator(BaseWithReferenceEvaluator):
         real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
 
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        return cos(real_images_center, generated_images_center)
+        return {"clip_similarity": cos(real_images_center, generated_images_center)}
 
 
 class DinoV2SimilarityEvaluator(BaseWithReferenceEvaluator):
@@ -102,7 +102,7 @@ class DinoV2SimilarityEvaluator(BaseWithReferenceEvaluator):
         real_images_center = torch.mean(real_images_embeddings, axis=0, keepdim=True)
 
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        return cos(real_images_center, generated_images_center)
+        return {"dino_v2_similarity": cos(real_images_center, generated_images_center)}
 
 
 class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
@@ -113,7 +113,7 @@ class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
         torch_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device) for img in images])
         self.evaluator.update(torch_imgs)
-        return self.evaluator.compute()
+        return {"inception_score": self.evaluator.compute()}
 
 
 class FIDEvaluator(BaseWithReferenceEvaluator):
@@ -142,10 +142,10 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
         self.evaluator768.update(torch_real_imgs, real=True)
         self.evaluator2048.update(torch_gen_imgs, real=False)
         self.evaluator2048.update(torch_real_imgs, real=True)
-        return (self.evaluator64.compute(),
-                self.evaluator192.compute(),
-                self.evaluator768.compute(),
-                self.evaluator2048.compute())
+        return {"fid_score_64": self.evaluator64.compute(),
+                "fid_score_192": self.evaluator192.compute(),
+                "fid_score_768": self.evaluator768.compute(),
+                "fid_score_2048": self.evaluator2048.compute()}
 
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
@@ -153,7 +153,7 @@ class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
         super().__init__(device, model_path)
 
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
-        return run_inference(images, self.model_path, self.device)
+        return {"aesthetic_predictor": run_inference(images, self.model_path, self.device)}
 
 
 class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
@@ -166,7 +166,7 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
         rewards = []
         for image, prompt in zip(images, prompts):
             rewards.append(self.evaluator.score(prompt, image))
-        return sum(rewards) / len(rewards)
+        return {"image_reward": sum(rewards) / len(rewards)}
 
 
 class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
@@ -192,7 +192,7 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
                 hps = hps.diagonal()
                 scores.append(hps.squeeze().tolist())
 
-        return sum(scores) / len(scores)
+        return {"human_preference_score": sum(scores) / len(scores)}
 
 
 class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
@@ -206,4 +206,4 @@ class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
         images_inputs = self.processor(text=None, images=images, return_tensors="pt", padding=True)
         images_inputs = {k: v.to(self.device) for k, v in images_inputs.items()}
         images_embeddings = self.model(**images_inputs).pooler_output.cpu().detach().numpy()
-        return vendi.score_X(images_embeddings).item()
+        return {"vendi_score_dino_v2": vendi.score_X(images_embeddings).item()}
