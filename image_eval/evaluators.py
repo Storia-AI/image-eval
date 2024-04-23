@@ -50,6 +50,7 @@ class BaseEvaluator(abc.ABC):
 
 class CLIPScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
+    HIGHER_IS_BETTER = True
 
     def __init__(self, device: str):
         super().__init__(device)
@@ -61,11 +62,12 @@ class CLIPScoreEvaluator(BaseEvaluator):
                  **ignored_kwargs) -> Dict[str, float]:
         torch_imgs = [transforms.ToTensor()(img).to(self.device) for img in generated_images]
         self.evaluator.update(torch_imgs, prompts)
-        return {"clip_score": self.evaluator.compute()}
+        return {"clip_score": self.evaluator.compute().item()}
 
 
 class StyleSimilarityEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
+    HIGHER_IS_BETTER = True
 
     def __init__(self, device: str):
         super().__init__(device)
@@ -90,6 +92,7 @@ class StyleSimilarityEvaluator(BaseEvaluator):
 
 class InceptionScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.IMAGE_QUALITY
+    HIGHER_IS_BETTER = True
 
     def __init__(self, device: str):
         super().__init__(device)
@@ -106,6 +109,7 @@ class InceptionScoreEvaluator(BaseEvaluator):
 
 class FIDEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
+    HIGHER_IS_BETTER = False
 
     def __init__(self, device: str):
         super().__init__(device)
@@ -147,6 +151,7 @@ class CMMDEvaluator(BaseEvaluator):
     This implementation is adapted from https://github.com/sayakpaul/cmmd-pytorch/blob/main/distance.py.
     """
     TYPE = EvaluatorType.FIDELITY
+    HIGHER_IS_BETTER = False
     _SIGMA = 10
 
     def __init__(self, device: str):
@@ -175,12 +180,14 @@ class CMMDEvaluator(BaseEvaluator):
             k_yy = torch.mean(
                 torch.exp(-gamma * (-2 * torch.matmul(y, y.T) + torch.unsqueeze(y_sqnorms, 1) + torch.unsqueeze(y_sqnorms, 0)))
             )
-            results[f"cmmd_{encoder.id}"] = k_xx + k_yy - 2 * k_xy
+            distance = k_xx + k_yy - 2 * k_xy
+            results[f"cmmd_{encoder.id}"] = distance.item()
         return results
 
 
 class AestheticPredictorEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.IMAGE_QUALITY
+    HIGHER_IS_BETTER = True
     DEFAULT_URL = "https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
 
     def __init__(self, device: str, model_url: str = DEFAULT_URL):
@@ -194,6 +201,7 @@ class AestheticPredictorEvaluator(BaseEvaluator):
 
 class ImageRewardEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
+    HIGHER_IS_BETTER = True
 
     def __init__(self, device: str):
         super().__init__(device)
@@ -212,6 +220,7 @@ class ImageRewardEvaluator(BaseEvaluator):
 
 class HumanPreferenceScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
+    HIGHER_IS_BETTER = True
     DEFAULT_URL = "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW"
 
     def __init__(self, device: str, model_url: str = DEFAULT_URL):
@@ -245,6 +254,7 @@ class HumanPreferenceScoreEvaluator(BaseEvaluator):
 
 class VendiScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.DIVERSITY
+    HIGHER_IS_BETTER = True
 
     def __init__(self, device: str):
         super().__init__(device)
