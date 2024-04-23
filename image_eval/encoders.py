@@ -68,3 +68,6 @@ class ConvNeXtV2Encoder(BaseEncoder):
         image_inputs = self.processor(text=None, images=images, return_tensors="pt", padding=True)
         image_inputs = {k: v.to(self.device) for k, v in image_inputs.items()}
         return self.model(**image_inputs).pooler_output
+
+
+ALL_ENCODER_CLASSES = [CLIPEncoder, DinoV2Encoder, ConvNeXtV2Encoder]

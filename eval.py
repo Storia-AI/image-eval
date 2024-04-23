@@ -13,6 +13,7 @@ from image_eval.evaluators import AestheticPredictorEvaluator
 from image_eval.evaluators import BaseReferenceFreeEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
+from image_eval.evaluators import CMMDEvaluator
 from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import HumanPreferenceScoreEvaluator
 from image_eval.evaluators import ImageRewardEvaluator
@@ -54,6 +55,10 @@ METRIC_NAME_TO_EVALUATOR = {
                        "the summary statistics of these Gaussians. A lower score is better with a 0 being a perfect "
                        "score indicating identical groups of images. This metric computes a distance for features"
                        "derived from the 64, 192, 768, and 2048 feature layers. For more info, check out https://arxiv.org/abs/1512.00567"
+    },
+    "cmmd": {
+        "evaluator": CMMDEvaluator,
+        "description": "A better FID alternative. See https://arxiv.org/abs/2401.09603.",
     },
     "aesthetic_predictor": {
         "evaluator": AestheticPredictorEvaluator,

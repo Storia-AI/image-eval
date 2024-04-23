@@ -12,9 +12,7 @@ from torchvision import transforms
 from vendi_score import vendi
 
 from image_eval.improved_aesthetic_predictor import run_inference
-from image_eval.encoders import CLIPEncoder
-from image_eval.encoders import ConvNeXtV2Encoder
-from image_eval.encoders import DinoV2Encoder
+from image_eval.encoders import ALL_ENCODER_CLASSES
 
 torch.manual_seed(42)
 
@@ -61,7 +59,7 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
 class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        self.encoders = [DinoV2Encoder(device), CLIPEncoder(device), ConvNeXtV2Encoder(device)]
+        self.encoders = [encoder_cls(device) for encoder_cls in ALL_ENCODER_CLASSES]
 
     def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
         """Returns the average cosine similarity between the generated images and the center of the cluster defined by real images."""
@@ -120,6 +118,40 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
                 "fid_score_2048": self.evaluator2048.compute()}
 
 
+class CMMDEvaluator(BaseWithReferenceEvaluator):
+    """Original paper: https://arxiv.org/abs/2401.09603 (published Jan 2024).
+
+    This implementation is adapted from https://github.com/sayakpaul/cmmd-pytorch/blob/main/distance.py.
+    """
+    _SIGMA = 10
+
+    def __init__(self, device: str):
+        self.device = device
+        self.encoders = [encoder_cls(device) for encoder_cls in ALL_ENCODER_CLASSES]
+
+    def evaluate(self, generated_images: list[Image.Image], real_images: list[Image.Image]):
+        results = {}
+        for encoder in self.encoders:
+            x = encoder.encode(generated_images)
+            y = encoder.encode(real_images)
+
+            x_sqnorms = torch.diag(torch.matmul(x, x.T))
+            y_sqnorms = torch.diag(torch.matmul(y, y.T))
+
+            gamma = 1 / (2 * CMMDEvaluator._SIGMA**2)
+            k_xx = torch.mean(
+                torch.exp(-gamma * (-2 * torch.matmul(x, x.T) + torch.unsqueeze(x_sqnorms, 1) + torch.unsqueeze(x_sqnorms, 0)))
+            )
+            k_xy = torch.mean(
+                torch.exp(-gamma * (-2 * torch.matmul(x, y.T) + torch.unsqueeze(x_sqnorms, 1) + torch.unsqueeze(y_sqnorms, 0)))
+            )
+            k_yy = torch.mean(
+                torch.exp(-gamma * (-2 * torch.matmul(y, y.T) + torch.unsqueeze(y_sqnorms, 1) + torch.unsqueeze(y_sqnorms, 0)))
+            )
+            results[f"cmmd_{encoder.id}"] = k_xx + k_yy - 2 * k_xy
+        return results
+
+
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str, model_path: str):
         super().__init__(device, model_path)
@@ -170,7 +202,7 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
 class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
-        self.encoders = [CLIPEncoder(device), DinoV2Encoder(device), ConvNeXtV2Encoder(device)]
+        self.encoders = [encoder_cls(device) for encoder_cls in ALL_ENCODER_CLASSES]
 
     def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
         results = {}
