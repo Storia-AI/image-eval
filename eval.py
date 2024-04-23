@@ -19,6 +19,7 @@ from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import HumanPreferenceScoreEvaluator
 from image_eval.evaluators import ImageRewardEvaluator
 from image_eval.evaluators import InceptionScoreEvaluator
+from image_eval.evaluators import VendiScoreEvaluator
 
 from streamlit.web import cli as stcli
 from typing import Dict
@@ -75,6 +76,10 @@ METRIC_NAME_TO_EVALUATOR = {
         "evaluator": HumanPreferenceScoreEvaluator,
         "description": "This metric outputs an estimate of the human preference for an image based on the paper https://tgxs002.github.io/align_sd_web/"
                        "The metric is bound between -100 and 100 with 100 being the best score."
+    },
+    "vendi_score": {
+        "evaluator": VendiScoreEvaluator,
+        "description": "TODO",
     }
 }
 
@@ -217,6 +222,8 @@ def main():
             computed_metrics.append([metric, [metric.item() for metric in computed_metric]])
         elif isinstance(computed_metric, float):
             computed_metrics.append([metric, computed_metric])
+        else:
+            raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
 
     # Print all results
     print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))

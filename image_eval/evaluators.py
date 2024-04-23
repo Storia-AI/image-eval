@@ -13,6 +13,7 @@ from transformers import AutoImageProcessor
 from transformers import Dinov2Model
 from transformers import CLIPModel
 from transformers import CLIPProcessor
+from vendi_score import vendi
 
 from image_eval.improved_aesthetic_predictor import run_inference
 
@@ -192,3 +193,17 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
                 scores.append(hps.squeeze().tolist())
 
         return sum(scores) / len(scores)
+
+
+class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
+    def __init__(self, device: str):
+        super().__init__(device)
+        model_name = "facebook/dinov2-base"
+        self.model = Dinov2Model.from_pretrained(model_name).to(self.device)
+        self.processor = AutoImageProcessor.from_pretrained(model_name)
+
+    def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]):
+        images_inputs = self.processor(text=None, images=images, return_tensors="pt", padding=True)
+        images_inputs = {k: v.to(self.device) for k, v in images_inputs.items()}
+        images_embeddings = self.model(**images_inputs).pooler_output.cpu().detach().numpy()
+        return vendi.score_X(images_embeddings).item()
