@@ -40,6 +40,12 @@ class DinoV2Encoder(BaseEncoder):
     """
     Original paper: https://arxiv.org/abs/2304.07193 (published April 2023).
     Used by LyCORIS for evaluation: https://arxiv.org/pdf/2309.14859.pdf.
+
+    Compared to CLIP, which used text-guided pretraining (aligning images against captions), DinoV2
+    used self-supervised learning on images alone. Its training objective maximizes agreement
+    between different patches within the same image. The intuition behind not relying on captions is
+    that it enables the model to pay attention to finer details, not just the ones captured in text.
+    DinoV2 was trained on a dataset of 142M automatically curated images.
     """
     def __init__(self, device: str):
         super().__init__("dino_v2", device)
@@ -57,6 +63,11 @@ class ConvNeXtV2Encoder(BaseEncoder):
     """
     Original paper: https://arxiv.org/abs/2301.00808 (published Jan 2023).
     Used by LyCORIS for evaluation: https://arxiv.org/pdf/2309.14859.pdf.
+
+    Similarly to DinoV2, ConvNeXtV2 did not use text-guided pretraining. It was trained on an image
+    dataset to recover masked patches. Compared to DinoV2 (which uses a ViT = Visual Transformer),
+    ConvNeXtV2 used a convolutional architecture. ConvNeXtV2 is the successor of MAE (Masked Auto
+    Encoder) embeddings, also coming out of Meta (https://arxiv.org/abs/2111.06377).
     """
     def __init__(self, device: str):
         super().__init__("convnext_v2", device)
