@@ -90,14 +90,9 @@ def read_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--metrics", "-m",
                         default="all",
-                        choices=(
-                            ["all"]
-                            # Groups of metrics (e.g. image_quality)
-                            + [member.name.lower() for member in EvaluatorType]
-                            # Individual metric names (e.g. clip_score)
-                            + list(METRIC_NAME_TO_EVALUATOR.keys())
-                        ),
-                        help="what metrics to evaluate as comma-delimited str; if `all`, we compute all possible metrics given the specified flags",
+                        help="valid values are: (1) all, (2) one of the following categories: image_quality, "
+                             "controllability, fidelity, diversity, or (3) a comma-separated list of metric names, "
+                             "for example: clip_score,style_similarity.",
                         type=str)
     parser.add_argument("--generated-images", "-g",
                         help="path to directory containing generated images to evaluate",
@@ -197,6 +192,7 @@ def main():
             name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
             if metric["evaluator"].TYPE.name.lower() == args.metrics
         ])
+    metrics = args.metrics.split(",")
 
     generated_images_by_filename = read_images(args.generated_images)
     if args.real_images:
@@ -207,19 +203,14 @@ def main():
         generated_images = list(generated_images_by_filename.values())
         prompts = None
 
-    # Parse str list of metrics
-    metrics = args.metrics.split(",")
-
     computed_metrics = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    logging.info(f"Running evaluation on device: {device}")
+
     # Compute all metrics
+    all_computed_metrics = {}
     for metric in metrics:
         logging.info(f"Computing metric {metric}...")
-        try:
-            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
-        except:
-            logging.error(f"Provided metric {metric} does not exist")
-            continue
 
         if metric == "aesthetic_predictor":
             model_path = os.path.join(args.cache_dir, "aesthetic_predictor/model.pth")
@@ -230,27 +221,23 @@ def main():
             download_model(url=args.human_preference_score_model_url, output_path=model_path)
             evaluator = HumanPreferenceScoreEvaluator(device, model_path)
         else:
+            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
         if isinstance(evaluator, BaseReferenceFreeEvaluator):
-            computed_metric = evaluator.evaluate(generated_images, prompts)
+            computed_metrics = evaluator.evaluate(generated_images, prompts)
         else:
             assert isinstance(evaluator, BaseWithReferenceEvaluator)
-            computed_metric = evaluator.evaluate(generated_images, real_images)
-
-        for key, value in computed_metric.items():
-            if isinstance(value, torch.Tensor):
-                computed_metrics.append([key, value.item()])
-            elif isinstance(value, tuple):
-                computed_metrics.append([key, [metric.item() for metric in value]])
-            elif isinstance(value, float):
-                computed_metrics.append([key, value])
-            else:
-                raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
+            computed_metrics = evaluator.evaluate(generated_images, real_images)
+        all_computed_metrics.update(computed_metrics)
 
     # Print all results
-    print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))
+    print(tabulate(all_computed_metrics.items(),
+                   headers=["Metric Name", "Value"],
+                   tablefmt="orgtbl"))
 
 
 if __name__ == "__main__":
-    main()
+    # https://github.com/huggingface/transformers/issues/26275
+    with torch.inference_mode():
+        main()
