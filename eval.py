@@ -116,9 +116,6 @@ def read_args():
     parser.add_argument("--human-preference-score-model-url",
                         default="https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW",
                         help="Model checkpoint for the human preference score evaluator.")
-    parser.add_argument("--cache_dir",
-                        default="/tmp/image-eval",
-                        help="Path where to download any auxiliary models and data.")
     return parser.parse_args()
 
 
@@ -152,22 +149,6 @@ def read_prompts_for_images(images_by_filename: Dict[str, Image.Image], prompts_
             logging.warning(f"Could not find image {image_filename}. "
                             f"Available images are: {images_by_filename.keys()}")
     return images, prompts
-
-
-def download_model(url: str, output_path: str):
-    if os.path.exists(output_path):
-        return
-
-    logging.info(f"Downloading model from {url}...")
-    output_dir = os.path.dirname(output_path)
-    os.makedirs(output_dir, exist_ok=True)
-
-    response = requests.get(url)
-    if not response.status_code == 200:
-        raise RuntimeError(f"Unable to download model from {url}.")
-
-    with open(output_path, "wb") as f:
-        f.write(response.content)
 
 
 def main():
@@ -213,13 +194,9 @@ def main():
         logging.info(f"Computing metric {metric}...")
 
         if metric == "aesthetic_predictor":
-            model_path = os.path.join(args.cache_dir, "aesthetic_predictor/model.pth")
-            download_model(url=args.aesthetic_predictor_model_url, output_path=model_path)
-            evaluator = AestheticPredictorEvaluator(device, model_path)
+            evaluator = AestheticPredictorEvaluator(device, args.aesthetic_predictor_model_url)
         elif metric == "human_preference_score":
-            model_path = os.path.join(args.cache_dir, "human_preference_score/model.pth")
-            download_model(url=args.human_preference_score_model_url, output_path=model_path)
-            evaluator = HumanPreferenceScoreEvaluator(device, model_path)
+            evaluator = HumanPreferenceScoreEvaluator(device, args.human_preference_score_model_url)
         else:
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)

@@ -15,6 +15,7 @@ from vendi_score import vendi
 
 from image_eval.improved_aesthetic_predictor import run_inference
 from image_eval.encoders import ALL_ENCODER_CLASSES
+from image_eval.model_utils import download_model
 
 torch.manual_seed(42)
 
@@ -42,9 +43,8 @@ class BaseReferenceFreeEvaluator(abc.ABC):
     """
     An evaluation that doesn't require gold samples to compare against.
     """
-    def __init__(self, device: str, model_path: Optional[str] = None):
+    def __init__(self, device: str):
         self.device = device
-        self.model_path = model_path
 
     @abc.abstractmethod
     def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
@@ -55,9 +55,8 @@ class BaseWithReferenceEvaluator(abc.ABC):
     """
     An evaluation that includes gold samples to compare against.
     """
-    def __init__(self, device: str, model_path: Optional[str] = None):
+    def __init__(self, device: str):
         self.device = device
-        self.model_path = model_path
 
     @abc.abstractmethod
     def evaluate(self,
@@ -194,11 +193,15 @@ class CMMDEvaluator(BaseWithReferenceEvaluator):
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
     TYPE = EvaluatorType.IMAGE_QUALITY
+    DEFAULT_URL = "https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
 
-    def __init__(self, device: str, model_path: str):
-        super().__init__(device, model_path)
+    def __init__(self, device: str, model_url: str = DEFAULT_URL):
+        super().__init__(device)
+        self.model_path = download_model(model_url, "aesthetic_predictor.pth")
 
-    def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]) -> Dict[str, float]:
+    def evaluate(self,
+                 images: list[Image.Image],
+                 ignored_prompts: list[str] = None) -> Dict[str, float]:
         return {"aesthetic_predictor": run_inference(images, self.model_path, self.device)}
 
 
@@ -219,9 +222,11 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
 
 class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
+    DEFAULT_URL = "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW"
 
-    def __init__(self, device: str, model_path: str):
-        super().__init__(device, model_path)
+    def __init__(self, device: str, model_url: str = DEFAULT_URL):
+        super().__init__(device)
+        self.model_path = download_model(model_url, "human_preference_score.pth")
         self.model, self.preprocess = clip.load("ViT-L/14", device=self.device)
 
     def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
@@ -251,7 +256,9 @@ class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
     def __init__(self, device: str):
         super().__init__(device)
 
-    def evaluate(self, images: list[Image.Image], ignored_prompts: list[str]) -> Dict[str, float]:
+    def evaluate(self,
+                 images: list[Image.Image],
+                 ignored_prompts: list[str] = None) -> Dict[str, float]:
         results = {}
         for encoder_cls in ALL_ENCODER_CLASSES:
             encoder = encoder_cls(self.device)
