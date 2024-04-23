@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import os
-import requests
 import sys
 
 import torch
@@ -10,8 +9,6 @@ from PIL import Image
 from tabulate import tabulate
 
 from image_eval.evaluators import AestheticPredictorEvaluator
-from image_eval.evaluators import BaseReferenceFreeEvaluator
-from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
 from image_eval.evaluators import CMMDEvaluator
 from image_eval.evaluators import EvaluatorType
@@ -176,8 +173,8 @@ def main():
     metrics = args.metrics.split(",")
 
     generated_images_by_filename = read_images(args.generated_images)
-    if args.real_images:
-        real_images = list(read_images(args.real_images).values())
+    real_images = list(read_images(args.real_images).values()) if args.real_images else None
+
     if args.prompts:
         generated_images, prompts = read_prompts_for_images(generated_images_by_filename, args.prompts)
     else:
@@ -201,11 +198,9 @@ def main():
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
-        if isinstance(evaluator, BaseReferenceFreeEvaluator):
-            computed_metrics = evaluator.evaluate(generated_images, prompts)
-        else:
-            assert isinstance(evaluator, BaseWithReferenceEvaluator)
-            computed_metrics = evaluator.evaluate(generated_images, real_images)
+        computed_metrics = evaluator.evaluate(generated_images,
+                                              real_images=real_images,
+                                              prompts=prompts)
         all_computed_metrics.update(computed_metrics)
 
     # Print all results

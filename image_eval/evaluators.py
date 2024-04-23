@@ -1,5 +1,4 @@
 import abc
-from typing import Optional
 
 import ImageReward as RM
 import clip
@@ -39,46 +38,33 @@ class EvaluatorType(Enum):
     DIVERSITY = 4
 
 
-class BaseReferenceFreeEvaluator(abc.ABC):
-    """
-    An evaluation that doesn't require gold samples to compare against.
-    """
+class BaseEvaluator(abc.ABC):
+    """Base class for evaluators."""
     def __init__(self, device: str):
         self.device = device
 
     @abc.abstractmethod
-    def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
+    def evaluate(self, generated_images: list[Image.Image], *args, **kwargs) -> Dict[str, float]:
         pass
 
 
-class BaseWithReferenceEvaluator(abc.ABC):
-    """
-    An evaluation that includes gold samples to compare against.
-    """
-    def __init__(self, device: str):
-        self.device = device
-
-    @abc.abstractmethod
-    def evaluate(self,
-                 generated_images: list[Image.Image],
-                 real_images: list[Image.Image]) -> Dict[str, float]:
-        pass
-
-
-class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
+class CLIPScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
 
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16").to(self.device)
 
-    def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
-        torch_imgs = [transforms.ToTensor()(img).to(self.device) for img in images]
+    def evaluate(self,
+                 generated_images: list[Image.Image],
+                 prompts: list[str],
+                 **ignored_kwargs) -> Dict[str, float]:
+        torch_imgs = [transforms.ToTensor()(img).to(self.device) for img in generated_images]
         self.evaluator.update(torch_imgs, prompts)
         return {"clip_score": self.evaluator.compute()}
 
 
-class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
+class StyleSimilarityEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
 
     def __init__(self, device: str):
@@ -86,7 +72,8 @@ class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
 
     def evaluate(self,
                  generated_images: list[Image.Image],
-                 real_images: list[Image.Image]) -> Dict[str, float]:
+                 real_images: list[Image.Image],
+                 **ignored_kwargs) -> Dict[str, float]:
         """Returns the average cosine similarity between the generated images and the center of the cluster defined by real images."""
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         results = {}
@@ -101,24 +88,23 @@ class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
         return results
 
 
-class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
+class InceptionScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.IMAGE_QUALITY
 
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = InceptionScore().to(self.device)
 
-    def evaluate(self,
-                 images: list[Image.Image],
-                 ignored_prompts: list[str] = None) -> Dict[str, float]:
-        torch_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device) for img in images])
+    def evaluate(self, generated_images: list[Image.Image], **ignored_kwargs) -> Dict[str, float]:
+        torch_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device)
+                                  for img in generated_images])
         self.evaluator.update(torch_imgs)
         mean, stddev = self.evaluator.compute()
         return {"inception_score_mean": mean.item(),
                 "inception_score_stddev": stddev.item()}
 
 
-class FIDEvaluator(BaseWithReferenceEvaluator):
+class FIDEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
 
     def __init__(self, device: str):
@@ -130,7 +116,8 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
 
     def evaluate(self,
                  generated_images: list[Image.Image],
-                 real_images: list[Image.Image]) -> Dict[str, float]:
+                 real_images: list[Image.Image],
+                 **ignored_kwargs) -> Dict[str, float]:
         torch_gen_imgs = torch.stack([transforms.ToTensor()(img).to(torch.uint8).to(self.device)
                                       for img in generated_images])
 
@@ -154,7 +141,7 @@ class FIDEvaluator(BaseWithReferenceEvaluator):
                 "fid_score_2048": self.evaluator2048.compute()}
 
 
-class CMMDEvaluator(BaseWithReferenceEvaluator):
+class CMMDEvaluator(BaseEvaluator):
     """Original paper: https://arxiv.org/abs/2401.09603 (published Jan 2024).
 
     This implementation is adapted from https://github.com/sayakpaul/cmmd-pytorch/blob/main/distance.py.
@@ -167,7 +154,8 @@ class CMMDEvaluator(BaseWithReferenceEvaluator):
 
     def evaluate(self,
                  generated_images: list[Image.Image],
-                 real_images: list[Image.Image]) -> Dict[str, float]:
+                 real_images: list[Image.Image],
+                 **ignored_kwargs) -> Dict[str, float]:
         results = {}
         for encoder_cls in ALL_ENCODER_CLASSES:
             encoder = encoder_cls(self.device)
@@ -191,7 +179,7 @@ class CMMDEvaluator(BaseWithReferenceEvaluator):
         return results
 
 
-class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
+class AestheticPredictorEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.IMAGE_QUALITY
     DEFAULT_URL = "https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth"
 
@@ -199,28 +187,30 @@ class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
         super().__init__(device)
         self.model_path = download_model(model_url, "aesthetic_predictor.pth")
 
-    def evaluate(self,
-                 images: list[Image.Image],
-                 ignored_prompts: list[str] = None) -> Dict[str, float]:
-        return {"aesthetic_predictor": run_inference(images, self.model_path, self.device)}
+    def evaluate(self, generated_images: list[Image.Image], **ignored_kwargs) -> Dict[str, float]:
+        return {"aesthetic_predictor":
+                run_inference(generated_images, self.model_path, self.device)}
 
 
-class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
+class ImageRewardEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
 
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = RM.load("ImageReward-v1.0")
 
-    def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
+    def evaluate(self,
+                 generated_images: list[Image.Image],
+                 prompts: list[str],
+                 **ignored_kwargs) -> Dict[str, float]:
         # Returns the average image reward
         rewards = []
-        for image, prompt in zip(images, prompts):
+        for image, prompt in zip(generated_images, prompts):
             rewards.append(self.evaluator.score(prompt, image))
         return {"image_reward": sum(rewards) / len(rewards)}
 
 
-class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
+class HumanPreferenceScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
     DEFAULT_URL = "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW"
 
@@ -229,11 +219,14 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
         self.model_path = download_model(model_url, "human_preference_score.pth")
         self.model, self.preprocess = clip.load("ViT-L/14", device=self.device)
 
-    def evaluate(self, images: list[Image.Image], prompts: list[str]) -> Dict[str, float]:
+    def evaluate(self,
+                 generated_images: list[Image.Image],
+                 prompts: list[str],
+                 **ignored_kwargs) -> Dict[str, float]:
         # Returns the average human preference score
         scores = []
         # TODO (mihail): Batch the inputs for faster processing
-        for pil_img, prompt in zip(images, prompts):
+        for pil_img, prompt in zip(generated_images, prompts):
             image = self.preprocess(pil_img).unsqueeze(0).to(self.device)
             text = clip.tokenize([prompt]).to(self.device)
             with torch.no_grad():
@@ -250,19 +243,17 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
         return {"human_preference_score": sum(scores) / len(scores)}
 
 
-class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
+class VendiScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.DIVERSITY
 
     def __init__(self, device: str):
         super().__init__(device)
 
-    def evaluate(self,
-                 images: list[Image.Image],
-                 ignored_prompts: list[str] = None) -> Dict[str, float]:
+    def evaluate(self, generated_images: list[Image.Image], **ignored_kwargs) -> Dict[str, float]:
         results = {}
         for encoder_cls in ALL_ENCODER_CLASSES:
             encoder = encoder_cls(self.device)
-            embeddings = encoder.encode(images).cpu().detach().numpy()
+            embeddings = encoder.encode(generated_images).cpu().detach().numpy()
             results[f"vendi_score_{encoder.id}"] = vendi.score_X(embeddings).item()
         return results
 
