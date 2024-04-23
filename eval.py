@@ -9,12 +9,18 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from image_eval.evaluators import BaseReferenceFreeEvaluator, AestheticPredictorEvaluator, CLIPSimilarityEvaluator, ImageRewardEvaluator, \
-    HumanPreferenceScoreEvaluator
+from image_eval.evaluators import AestheticPredictorEvaluator
+from image_eval.evaluators import BaseReferenceFreeEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
+from image_eval.evaluators import CMMDEvaluator
 from image_eval.evaluators import FIDEvaluator
+from image_eval.evaluators import HumanPreferenceScoreEvaluator
+from image_eval.evaluators import ImageRewardEvaluator
 from image_eval.evaluators import InceptionScoreEvaluator
+from image_eval.evaluators import StyleSimilarityEvaluator
+from image_eval.evaluators import VendiScoreEvaluator
+
 from streamlit.web import cli as stcli
 from typing import Dict
 
@@ -27,11 +33,11 @@ METRIC_NAME_TO_EVALUATOR = {
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
-    "clip_similarity": {
-        "evaluator": CLIPSimilarityEvaluator,
+    "style_similarity": {
+        "evaluator": StyleSimilarityEvaluator,
         "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
-                       "and the generated images. The metric relies on CLIP embeddings. The score is bound between 0 and 1, "
-                       "with 1 being the best score. The purpose of the metric is to measure how in-style generated images are."
+                       "and the generated images. The score is bound between 0 and 1, with 1 being the best score. "
+                       "The purpose of the metric is to measure how in-style generated images are, compared to the real ones."
     },
     "inception_score": {
         "evaluator": InceptionScoreEvaluator,
@@ -50,6 +56,10 @@ METRIC_NAME_TO_EVALUATOR = {
                        "score indicating identical groups of images. This metric computes a distance for features"
                        "derived from the 64, 192, 768, and 2048 feature layers. For more info, check out https://arxiv.org/abs/1512.00567"
     },
+    "cmmd": {
+        "evaluator": CMMDEvaluator,
+        "description": "A better FID alternative. See https://arxiv.org/abs/2401.09603.",
+    },
     "aesthetic_predictor": {
         "evaluator": AestheticPredictorEvaluator,
         "description": "This metrics trains a model to predict an aesthetic score using a multilayer perceptron"
@@ -66,6 +76,11 @@ METRIC_NAME_TO_EVALUATOR = {
         "evaluator": HumanPreferenceScoreEvaluator,
         "description": "This metric outputs an estimate of the human preference for an image based on the paper https://tgxs002.github.io/align_sd_web/"
                        "The metric is bound between -100 and 100 with 100 being the best score."
+    },
+    "vendi_score": {
+        "evaluator": VendiScoreEvaluator,
+        "description": "This metric evaluates how diverse the generated image set is. We suggest generating all images with the same prompt."
+                       "See https://arxiv.org/abs/2210.02410.",
     }
 }
 
@@ -104,25 +119,36 @@ def read_args():
     return parser.parse_args()
 
 
-def get_images_from_dir(dir_path: str, prompts: Dict[str, str] = None):
-    images = []
-    skipped_count = 0
-    for image in sorted(os.listdir(dir_path)):
-        if prompts and not image in prompts.keys():
-            skipped_count += 1
-            continue
-        full_image_path = os.path.join(dir_path, image)
+def read_images(image_dir: str) -> Dict[str, Image.Image]:
+    """Reads all the images in a given folder."""
+    images = {}
+    image_filenames = sorted(os.listdir(image_dir))
+    for image_filename in image_filenames:
+        image_path = os.path.join(image_dir, image_filename)
         try:
-            pil_image = Image.open(full_image_path).convert("RGB")
+            pil_image = Image.open(image_path).convert("RGB")
         except Exception:
             # Ignore non-image files in this folder.
-            logging.warning(f"Cannot read image from {full_image_path}. Skipping.")
+            logging.warning(f"Cannot read image from {image_path}. Skipping.")
             continue
-        images.append(pil_image)
-
-    if skipped_count > 0:
-        logging.warning(f"Evaluating only images with corresponding prompts. Included {len(images)} images, skipped {skipped_count}.")
+        images[image_filename] = pil_image
     return images
+
+
+def read_prompts_for_images(images_by_filename: Dict[str, Image.Image], prompts_path: str):
+    images = []
+    prompts = []
+    with open(prompts_path, "r") as f:
+        prompts_by_image_filename = json.load(f)
+    for image_filename, prompt in prompts_by_image_filename.items():
+        image = images_by_filename.get(image_filename)
+        if image:
+            images.append(image)
+            prompts.append(prompt)
+        else:
+            logging.warning(f"Could not find image {image_filename}. "
+                            f"Available images are: {images_by_filename.keys()}")
+    return images, prompts
 
 
 def download_model(url: str, output_path: str):
@@ -159,10 +185,14 @@ def main():
     if args.metrics == "all":
         args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
 
-    generated_images = get_images_from_dir(args.generated_images)
-
-    if "fid" in args.metrics:
-        assert args.real_images, "Must provide --real-images if using fid"
+    generated_images_by_filename = read_images(args.generated_images)
+    if args.real_images:
+        real_images = list(read_images(args.real_images).values())
+    if args.prompts:
+        generated_images, prompts = read_prompts_for_images(generated_images_by_filename, args.prompts)
+    else:
+        generated_images = list(generated_images_by_filename.values())
+        prompts = None
 
     # Parse str list of metrics
     metrics = args.metrics.split(",")
@@ -190,24 +220,20 @@ def main():
             evaluator = metric_evaluator(device)
 
         if isinstance(evaluator, BaseReferenceFreeEvaluator):
-            if not args.prompts:
-                raise ValueError(f"Metric {metric} requires --prompts to be specified.")
-            with open(args.prompts) as f:
-                prompts = json.load(f)
-            generated_images = get_images_from_dir(args.generated_images, prompts=prompts)
-            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
+            computed_metric = evaluator.evaluate(generated_images, prompts)
         else:
             assert isinstance(evaluator, BaseWithReferenceEvaluator)
-            generated_images = get_images_from_dir(args.generated_images)
-            real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
 
-        if isinstance(computed_metric, torch.Tensor):
-            computed_metrics.append([metric, computed_metric.item()])
-        elif isinstance(computed_metric, tuple):
-            computed_metrics.append([metric, [metric.item() for metric in computed_metric]])
-        elif isinstance(computed_metric, float):
-            computed_metrics.append([metric, computed_metric])
+        for key, value in computed_metric.items():
+            if isinstance(value, torch.Tensor):
+                computed_metrics.append([key, value.item()])
+            elif isinstance(value, tuple):
+                computed_metrics.append([key, [metric.item() for metric in value]])
+            elif isinstance(value, float):
+                computed_metrics.append([key, value])
+            else:
+                raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
 
     # Print all results
     print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))
