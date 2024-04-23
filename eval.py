@@ -114,25 +114,36 @@ def read_args():
     return parser.parse_args()
 
 
-def get_images_from_dir(dir_path: str, prompts: Dict[str, str] = None):
-    images = []
-    skipped_count = 0
-    for image in sorted(os.listdir(dir_path)):
-        if prompts and not image in prompts.keys():
-            skipped_count += 1
-            continue
-        full_image_path = os.path.join(dir_path, image)
+def read_images(image_dir: str) -> Dict[str, Image.Image]:
+    """Reads all the images in a given folder."""
+    images = {}
+    image_filenames = sorted(os.listdir(image_dir))
+    for image_filename in image_filenames:
+        image_path = os.path.join(image_dir, image_filename)
         try:
-            pil_image = Image.open(full_image_path).convert("RGB")
+            pil_image = Image.open(image_path).convert("RGB")
         except Exception:
             # Ignore non-image files in this folder.
-            logging.warning(f"Cannot read image from {full_image_path}. Skipping.")
+            logging.warning(f"Cannot read image from {image_path}. Skipping.")
             continue
-        images.append(pil_image)
-
-    if skipped_count > 0:
-        logging.warning(f"Evaluating only images with corresponding prompts. Included {len(images)} images, skipped {skipped_count}.")
+        images[image_filename] = pil_image
     return images
+
+
+def read_prompts_for_images(images_by_filename: Dict[str, Image.Image], prompts_path: str):
+    images = []
+    prompts = []
+    with open(prompts_path, "r") as f:
+        prompts_by_image_filename = json.load(f)
+    for image_filename, prompt in prompts_by_image_filename.items():
+        image = images_by_filename.get(image_filename)
+        if image:
+            images.append(image)
+            prompts.append(prompt)
+        else:
+            logging.warning(f"Could not find image {image_filename}. "
+                            f"Available images are: {images_by_filename.keys()}")
+    return images, prompts
 
 
 def download_model(url: str, output_path: str):
@@ -169,10 +180,14 @@ def main():
     if args.metrics == "all":
         args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
 
-    generated_images = get_images_from_dir(args.generated_images)
-
-    if "fid" in args.metrics:
-        assert args.real_images, "Must provide --real-images if using fid"
+    generated_images_by_filename = read_images(args.generated_images)
+    if args.real_images:
+        real_images = list(read_images(args.real_images).values())
+    if args.prompts:
+        generated_images, prompts = read_prompts_for_images(generated_images_by_filename, args.prompts)
+    else:
+        generated_images = list(generated_images_by_filename.values())
+        prompts = None
 
     # Parse str list of metrics
     metrics = args.metrics.split(",")
@@ -200,16 +215,9 @@ def main():
             evaluator = metric_evaluator(device)
 
         if isinstance(evaluator, BaseReferenceFreeEvaluator):
-            if not args.prompts:
-                raise ValueError(f"Metric {metric} requires --prompts to be specified.")
-            with open(args.prompts) as f:
-                prompts = json.load(f)
-            generated_images = get_images_from_dir(args.generated_images, prompts=prompts)
-            computed_metric = evaluator.evaluate(generated_images, list(prompts.values()))
+            computed_metric = evaluator.evaluate(generated_images, prompts)
         else:
             assert isinstance(evaluator, BaseWithReferenceEvaluator)
-            generated_images = get_images_from_dir(args.generated_images)
-            real_images = get_images_from_dir(args.real_images)
             computed_metric = evaluator.evaluate(generated_images, real_images)
 
         for key, value in computed_metric.items():
