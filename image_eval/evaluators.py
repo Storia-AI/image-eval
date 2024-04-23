@@ -5,6 +5,7 @@ import ImageReward as RM
 import clip
 import torch
 from PIL import Image
+from enum import Enum
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.multimodal.clip_score import CLIPScore
@@ -18,6 +19,23 @@ torch.manual_seed(42)
 
 
 # TODO (mihail): Decouple this so not all evaluators are in the same file
+
+
+class EvaluatorType(Enum):
+    """Follows the evaluation terminology established by https://arxiv.org/pdf/2309.14859.pdf."""
+    # The visual appeal of the generated images (naturalness, absence of artifacts or deformations).
+    IMAGE_QUALITY = 1
+
+    # The model’s ability to generate images that align well with text prompts.
+    CONTROLLABILITY = 2
+
+    # The extent to which generated images adhere to the target concept. Relevant for fine-tuned
+    # models rather than foundational ones (e.g. vanilla Stable Diffusion).
+    FIDELITY = 3
+
+    # The variety of images that are produced from a single or a set of prompts.
+    DIVERSITY = 4
+
 
 class BaseReferenceFreeEvaluator(abc.ABC):
     """
@@ -46,6 +64,8 @@ class BaseWithReferenceEvaluator(abc.ABC):
 
 
 class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.CONTROLLABILITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16").to(self.device)
@@ -57,6 +77,8 @@ class CLIPScoreEvaluator(BaseReferenceFreeEvaluator):
 
 
 class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
+    TYPE = EvaluatorType.FIDELITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.encoders = [encoder_cls(device) for encoder_cls in ALL_ENCODER_CLASSES]
@@ -76,6 +98,8 @@ class StyleSimilarityEvaluator(BaseWithReferenceEvaluator):
 
 
 class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.IMAGE_QUALITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = InceptionScore().to(self.device)
@@ -87,6 +111,8 @@ class InceptionScoreEvaluator(BaseReferenceFreeEvaluator):
 
 
 class FIDEvaluator(BaseWithReferenceEvaluator):
+    TYPE = EvaluatorType.FIDELITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator64 = FrechetInceptionDistance(feature=64).to(self.device).set_dtype(torch.float64)
@@ -123,6 +149,7 @@ class CMMDEvaluator(BaseWithReferenceEvaluator):
 
     This implementation is adapted from https://github.com/sayakpaul/cmmd-pytorch/blob/main/distance.py.
     """
+    TYPE = EvaluatorType.FIDELITY
     _SIGMA = 10
 
     def __init__(self, device: str):
@@ -153,6 +180,8 @@ class CMMDEvaluator(BaseWithReferenceEvaluator):
 
 
 class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.IMAGE_QUALITY
+
     def __init__(self, device: str, model_path: str):
         super().__init__(device, model_path)
 
@@ -161,6 +190,8 @@ class AestheticPredictorEvaluator(BaseReferenceFreeEvaluator):
 
 
 class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.CONTROLLABILITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.evaluator = RM.load("ImageReward-v1.0")
@@ -174,6 +205,8 @@ class ImageRewardEvaluator(BaseReferenceFreeEvaluator):
 
 
 class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.CONTROLLABILITY
+
     def __init__(self, device: str, model_path: str):
         super().__init__(device, model_path)
         self.model, self.preprocess = clip.load("ViT-L/14", device=self.device)
@@ -200,6 +233,8 @@ class HumanPreferenceScoreEvaluator(BaseReferenceFreeEvaluator):
 
 
 class VendiScoreEvaluator(BaseReferenceFreeEvaluator):
+    TYPE = EvaluatorType.DIVERSITY
+
     def __init__(self, device: str):
         super().__init__(device)
         self.encoders = [encoder_cls(device) for encoder_cls in ALL_ENCODER_CLASSES]

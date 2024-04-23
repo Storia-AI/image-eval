@@ -14,6 +14,7 @@ from image_eval.evaluators import BaseReferenceFreeEvaluator
 from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
 from image_eval.evaluators import CMMDEvaluator
+from image_eval.evaluators import EvaluatorType
 from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import HumanPreferenceScoreEvaluator
 from image_eval.evaluators import ImageRewardEvaluator
@@ -89,6 +90,13 @@ def read_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--metrics", "-m",
                         default="all",
+                        choices=(
+                            ["all"]
+                            # Groups of metrics (e.g. image_quality)
+                            + [member.name.lower() for member in EvaluatorType]
+                            # Individual metric names (e.g. clip_score)
+                            + list(METRIC_NAME_TO_EVALUATOR.keys())
+                        ),
                         help="what metrics to evaluate as comma-delimited str; if `all`, we compute all possible metrics given the specified flags",
                         type=str)
     parser.add_argument("--generated-images", "-g",
@@ -184,6 +192,11 @@ def main():
 
     if args.metrics == "all":
         args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
+    if args.metrics in [member.name.lower() for member in EvaluatorType]:
+        args.metrics = ",".join([
+            name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
+            if metric["evaluator"].TYPE.name.lower() == args.metrics
+        ])
 
     generated_images_by_filename = read_images(args.generated_images)
     if args.real_images:
