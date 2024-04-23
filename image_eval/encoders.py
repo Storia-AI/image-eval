@@ -1,4 +1,5 @@
 import abc
+import os
 
 from PIL import Image
 from transformers import AutoImageProcessor
@@ -6,6 +7,10 @@ from transformers import Dinov2Model
 from transformers import CLIPModel
 from transformers import CLIPProcessor
 from transformers import ConvNextV2Model
+
+# When HuggingFace is down, use the cache and don't make any calls to them.
+LOCAL_FILES_ONLY = os.getenv("LOCAL_FILES_ONLY", False)
+assert LOCAL_FILES_ONLY
 
 
 class BaseEncoder(abc.ABC):
@@ -27,7 +32,8 @@ class CLIPEncoder(BaseEncoder):
     def __init__(self, device: str):
         super().__init__("clip", device)
         model_name = "openai/clip-vit-base-patch16"
-        self.model = CLIPModel.from_pretrained(model_name).to(self.device)
+        self.model = CLIPModel.from_pretrained(model_name, local_files_only=LOCAL_FILES_ONLY)\
+            .to(self.device)
         self.processor = CLIPProcessor.from_pretrained(model_name)
 
     def encode(self, images: list[Image.Image]):
@@ -50,7 +56,8 @@ class DinoV2Encoder(BaseEncoder):
     def __init__(self, device: str):
         super().__init__("dino_v2", device)
         model_name = "facebook/dinov2-base"
-        self.model = Dinov2Model.from_pretrained(model_name).to(self.device)
+        self.model = Dinov2Model.from_pretrained(model_name, local_files_only=LOCAL_FILES_ONLY)\
+            .to(self.device)
         self.processor = AutoImageProcessor.from_pretrained(model_name)
 
     def encode(self, images: list[Image.Image]):
@@ -72,7 +79,8 @@ class ConvNeXtV2Encoder(BaseEncoder):
     def __init__(self, device: str):
         super().__init__("convnext_v2", device)
         model_name = "facebook/convnextv2-base-22k-384"
-        self.model = ConvNextV2Model.from_pretrained(model_name).to(self.device)
+        self.model = ConvNextV2Model.from_pretrained(model_name, local_files_only=LOCAL_FILES_ONLY)\
+            .to(self.device)
         self.processor = AutoImageProcessor.from_pretrained(model_name)
 
     def encode(self, images: list[Image.Image]):
