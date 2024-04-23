@@ -17,8 +17,7 @@
 
 ## So, why should I care?
 
-Since the advent of systems such as [Stable Diffusion](https://stability.ai/blog/stable-diffusion-public-release), [Midjourney](https://www.midjourney.com/home/), and [DallE-2](https://openai.com/dall-e-2) text-to-image generation  
-models have taken the world by storm.
+Since the advent of systems such as [Stable Diffusion](https://stability.ai/blog/stable-diffusion-public-release), [Midjourney](https://www.midjourney.com/home/), and [DallE-2](https://openai.com/dall-e-2) text-to-image generation models have taken the world by storm.
 
 However, evaluation of the quality of these systems still remains one of the
 hardest challenges in continuing to improve them as there is a lack of standardization and robust tooling.
@@ -46,7 +45,6 @@ We also provide a simple and ready-to-use [Streamlit](https://streamlit.io/) int
 This library has been tested on Python 3.9.12. Installing the library involves running:
 ```
 pip install image-eval
-pip install git+https://github.com/openai/CLIP.git # A dependency some metrics require
 ```
 
 Optionally, if you have a CUDA-enabled device, install the [version of PyTorch](https://pytorch.org/get-started/previous-versions/) that matches your CUDA version. For CUDA 11.3, that might look like:
@@ -54,38 +52,18 @@ Optionally, if you have a CUDA-enabled device, install the [version of PyTorch](
 pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
 ```
 
-NOTE: If you want to use the `aesthetic_predictor` and `human_preference_score` metrics, you will need to download the respective model weights.
-
-We require having a `models` folder and then having a separate subfolder for `aesthetic_predictor` and `human_preference_score` with the downloaded weights.
-
-For `aesthetic_predictor` you can download the weights of the model [here](https://github.com/christophschuhmann/improved-aesthetic-predictor/blob/main/sac%2Blogos%2Bava1-l14-linearMSE.pth).
-
-For `human_preference_score` you can download the weights of the model [here](https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW).
-
-Your `models` folder should then have this structure:
-```
-models/
-├── aesthetic_predictor/
-│   └── sac+logos+ava1-l14-linearMSE.pth
-└── human_preference_score/
-    └── hpc.pt
-```
-
-You can then specify your `models` folder in the [usage](#usage) section below.
-
 ## Usage
 
 There are two ways to interact with the `image-eval` library: either through the CLI or through the API.
 
 ### CLI
 
-You can invoke all the metric computations through the CLI once you've `pip install`'d the library. The library makes certain
-assumptions about the format of the inputs to the CLI.
+You can invoke all the metric computations through the CLI once you've `pip install`'d the library. The library makes certain assumptions about the format of the inputs to the CLI.
 
 For example, if you want to calculate a metric assessing the match between
 prompts and generated images (as is the case with `clip_score`), you would invoke:
 ```
-image_eval -m clip_score -p /path/to/image_to_prompt.json -g /path/to/folder/with/generated/images 
+image_eval -m clip_score -p /path/to/image_to_prompt.json -g /path/to/folder/with/generated/images
 ```
 
 Here `image_to_prompt.json` is a JSON file with the following format:
@@ -102,11 +80,6 @@ where `image_1.jpg` and `image_2.jpg` are the names of the generated images in t
 If you want to calculate a metric assessing the match between generated images and a set of reference images (as is the case with `fid`), you would invoke:
 ```
 image_eval -m fid -g /path/to/generated/images -r /path/to/real/images
-```
-
-Some metrics may need you to specify additional arguments. For example, if you want to use the `aesthetic_predictor` or `human_preference_score` metrics, you would invoke:
-```
-image_eval -m aesthetic_predictor -p /path/to/image_to_prompt.json -g /path/to/generated/images --model-dir /path/to/folder/with/models
 ```
 
 You can also compute multiple metrics simultaneously by passing in a comma-separated list of metrics to the `-m` flag:
