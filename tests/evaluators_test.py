@@ -81,6 +81,10 @@ class TestEvaluators(unittest.TestCase):
 
             # The same evaluator might return multiple metrics.
             for similar_key, similar_value in results_similar.items():
+                # Skip the FaceEncoder, since it won't recognize a human face in the dog picture.
+                if "insightface" in similar_key:
+                    continue
+
                 dissimilar_value = results_dissimilar[similar_key]
                 logging.info(f"Scores from {evaluator}/{similar_key}: "
                              f"similar={similar_value}, dissimilar={dissimilar_value}")
@@ -103,6 +107,10 @@ class TestEvaluators(unittest.TestCase):
             results_diverse = evaluator.evaluate([img_julie1, img_other])
 
             for key_not_diverse, value_not_diverse in results_not_diverse.items():
+                # Skip the FaceEncoder, since it won't recognize a human face in the dog picture.
+                if "insightface" in key_not_diverse:
+                    continue
+
                 value_diverse = results_diverse[key_not_diverse]
                 logging.info(f"Scores from {evaluator}/{key_not_diverse}: "
                              f"not_diverse={value_not_diverse}, diverse={value_diverse}")

@@ -1,7 +1,11 @@
 import abc
+import logging
+import numpy as np
 import os
+import torch
 
 from PIL import Image
+from insightface.app import FaceAnalysis
 from transformers import AutoImageProcessor
 from transformers import Dinov2Model
 from transformers import CLIPModel
@@ -89,4 +93,33 @@ class ConvNeXtV2Encoder(BaseEncoder):
         return self.model(**image_inputs).pooler_output
 
 
-ALL_ENCODER_CLASSES = [CLIPEncoder, DinoV2Encoder, ConvNeXtV2Encoder]
+class InsightFaceEncoder(BaseEncoder):
+    """Computes face embeddings; see https://insightface.ai/."""
+    EMBEDDING_SIZE = 512
+
+    def __init__(self, device: str):
+        super().__init__("insightface", device)
+        provider = "CUDAExecutionProvider" if "cuda" in device else "CPUExecutionProvider"
+        self.app = FaceAnalysis(providers=[provider])
+
+    def encode(self, images: list[Image.Image]):
+        self.app.prepare(ctx_id=0, det_size=images[0].size)
+
+        all_embeddings = []
+        for image in images:
+            try:
+                # Returns one result for each person identified in the image.
+                results = self.app.get(np.array(image))
+                embeddings = [r["embedding"] for r in results]
+            except Exception as e:
+                logging.warning(f"The `insightface` library failed to extract embeddings: {e}")
+                embeddings = []
+
+            if not embeddings:
+                embeddings.append(np.zeros(self.EMBEDDING_SIZE))
+            all_embeddings.append(np.mean(np.array(embeddings), axis=0))
+
+        return torch.tensor(all_embeddings, dtype=torch.float32).to(self.device)
+
+
+ALL_ENCODER_CLASSES = [CLIPEncoder, DinoV2Encoder, ConvNeXtV2Encoder, InsightFaceEncoder]
