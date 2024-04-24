@@ -1,8 +1,10 @@
 import abc
+from contextlib import redirect_stdout
 import logging
 import numpy as np
 import os
 import torch
+from io import StringIO
 
 from PIL import Image
 from insightface.app import FaceAnalysis
@@ -14,7 +16,6 @@ from transformers import ConvNextV2Model
 
 # When HuggingFace is down, use the cache and don't make any calls to them.
 LOCAL_FILES_ONLY = os.getenv("LOCAL_FILES_ONLY", False)
-assert LOCAL_FILES_ONLY
 
 
 class BaseEncoder(abc.ABC):
@@ -100,11 +101,13 @@ class InsightFaceEncoder(BaseEncoder):
     def __init__(self, device: str):
         super().__init__("insightface", device)
         provider = "CUDAExecutionProvider" if "cuda" in device else "CPUExecutionProvider"
-        self.app = FaceAnalysis(providers=[provider])
+        # The `insightface` library is very verbose, so we need to silence it.
+        with redirect_stdout(StringIO()):
+            self.app = FaceAnalysis(providers=[provider])
 
     def encode(self, images: list[Image.Image]):
-        self.app.prepare(ctx_id=0, det_size=images[0].size)
-
+        with redirect_stdout(StringIO()):
+            self.app.prepare(ctx_id=0, det_size=images[0].size)
         all_embeddings = []
         for image in images:
             try:

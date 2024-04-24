@@ -163,13 +163,17 @@ def main():
         sys.argv = ["streamlit", "run", f"{lib_folder}/image_eval/local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
         sys.exit(stcli.main())
 
+    metrics_explicitly_specified = []
     if args.metrics == "all":
         args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
-    if args.metrics in [member.name.lower() for member in EvaluatorType]:
+    elif args.metrics in [member.name.lower() for member in EvaluatorType]:
         args.metrics = ",".join([
             name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
             if metric["evaluator"].TYPE.name.lower() == args.metrics
         ])
+    else:
+        # Metrics must be comma-separated
+        metrics_explicitly_specified = args.metrics.split(",")
     metrics = args.metrics.split(",")
 
     generated_images_by_filename = read_images(args.generated_images)
@@ -188,8 +192,6 @@ def main():
     # Compute all metrics
     all_computed_metrics = {}
     for metric in metrics:
-        logging.info(f"Computing metric {metric}...")
-
         if metric == "aesthetic_predictor":
             evaluator = AestheticPredictorEvaluator(device, args.aesthetic_predictor_model_url)
         elif metric == "human_preference_score":
@@ -198,6 +200,11 @@ def main():
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
+        if not evaluator.is_useful(generated_images) and not metric in metrics_explicitly_specified:
+            logging.warning(f"Skipping metric {metric} as it is not useful for the given images.")
+            continue
+
+        logging.info(f"Computing metric {metric}...")
         computed_metrics = evaluator.evaluate(generated_images,
                                               real_images=real_images,
                                               prompts=prompts)

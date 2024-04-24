@@ -47,6 +47,9 @@ class BaseEvaluator(abc.ABC):
     def evaluate(self, generated_images: list[Image.Image], *args, **kwargs) -> Dict[str, float]:
         pass
 
+    def is_useful(self, generated_images: list[Image.Image], *args, **kwargs) -> bool:
+        return True
+
 
 class CLIPScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
@@ -106,6 +109,11 @@ class InceptionScoreEvaluator(BaseEvaluator):
         return {"inception_score_mean": mean.item(),
                 "inception_score_stddev": stddev.item()}
 
+    def is_useful(self, generated_images: list[Image.Image], **ignored_kwargs) -> bool:
+        # InceptionScore calculates a marginal distribution over the objects identified in the
+        # images. This requires a large number of images to be useful; papers use 30k-60k images.
+        return len(generated_images) >= 1000
+
 
 class FIDEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
@@ -143,6 +151,11 @@ class FIDEvaluator(BaseEvaluator):
                 "fid_score_192": self.evaluator192.compute(),
                 "fid_score_768": self.evaluator768.compute(),
                 "fid_score_2048": self.evaluator2048.compute()}
+
+    def is_useful(self, generated_images: list[Image.Image]):
+        # Similarly to Inception Score, FID calculates marginal distributions over datasets, and is
+        # only useful when there are thousands of images.
+        return len(generated_images) >= 1000
 
 
 class CMMDEvaluator(BaseEvaluator):
