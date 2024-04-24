@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import os
-import requests
 import sys
 
 import torch
@@ -10,10 +9,9 @@ from PIL import Image
 from tabulate import tabulate
 
 from image_eval.evaluators import AestheticPredictorEvaluator
-from image_eval.evaluators import BaseReferenceFreeEvaluator
-from image_eval.evaluators import BaseWithReferenceEvaluator
 from image_eval.evaluators import CLIPScoreEvaluator
 from image_eval.evaluators import CMMDEvaluator
+from image_eval.evaluators import EvaluatorType
 from image_eval.evaluators import FIDEvaluator
 from image_eval.evaluators import HumanPreferenceScoreEvaluator
 from image_eval.evaluators import ImageRewardEvaluator
@@ -89,7 +87,9 @@ def read_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--metrics", "-m",
                         default="all",
-                        help="what metrics to evaluate as comma-delimited str; if `all`, we compute all possible metrics given the specified flags",
+                        help="valid values are: (1) all, (2) one of the following categories: image_quality, "
+                             "controllability, fidelity, diversity, or (3) a comma-separated list of metric names, "
+                             "for example: clip_score,style_similarity.",
                         type=str)
     parser.add_argument("--generated-images", "-g",
                         help="path to directory containing generated images to evaluate",
@@ -113,9 +113,6 @@ def read_args():
     parser.add_argument("--human-preference-score-model-url",
                         default="https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW",
                         help="Model checkpoint for the human preference score evaluator.")
-    parser.add_argument("--cache_dir",
-                        default="/tmp/image-eval",
-                        help="Path where to download any auxiliary models and data.")
     return parser.parse_args()
 
 
@@ -151,22 +148,6 @@ def read_prompts_for_images(images_by_filename: Dict[str, Image.Image], prompts_
     return images, prompts
 
 
-def download_model(url: str, output_path: str):
-    if os.path.exists(output_path):
-        return
-
-    logging.info(f"Downloading model from {url}...")
-    output_dir = os.path.dirname(output_path)
-    os.makedirs(output_dir, exist_ok=True)
-
-    response = requests.get(url)
-    if not response.status_code == 200:
-        raise RuntimeError(f"Unable to download model from {url}.")
-
-    with open(output_path, "wb") as f:
-        f.write(response.content)
-
-
 def main():
     args = read_args()
     if args.available_metrics:
@@ -182,62 +163,64 @@ def main():
         sys.argv = ["streamlit", "run", f"{lib_folder}/image_eval/local_ab_test.py", "--", "--model-predictions-json", args.model_predictions_json]
         sys.exit(stcli.main())
 
+    metrics_explicitly_specified = []
     if args.metrics == "all":
         args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
+    elif args.metrics in [member.name.lower() for member in EvaluatorType]:
+        args.metrics = ",".join([
+            name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
+            if metric["evaluator"].TYPE.name.lower() == args.metrics
+        ])
+    else:
+        # Metrics must be comma-separated
+        metrics_explicitly_specified = args.metrics.split(",")
+    metrics = args.metrics.split(",")
 
     generated_images_by_filename = read_images(args.generated_images)
-    if args.real_images:
-        real_images = list(read_images(args.real_images).values())
+    real_images = list(read_images(args.real_images).values()) if args.real_images else None
+
     if args.prompts:
         generated_images, prompts = read_prompts_for_images(generated_images_by_filename, args.prompts)
     else:
         generated_images = list(generated_images_by_filename.values())
         prompts = None
 
-    # Parse str list of metrics
-    metrics = args.metrics.split(",")
-
     computed_metrics = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    # Compute all metrics
-    for metric in metrics:
-        logging.info(f"Computing metric {metric}...")
-        try:
-            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
-        except:
-            logging.error(f"Provided metric {metric} does not exist")
-            continue
+    logging.info(f"Running evaluation on device: {device}")
 
+    # Compute all metrics
+    all_computed_metrics = {}
+    for metric in metrics:
         if metric == "aesthetic_predictor":
-            model_path = os.path.join(args.cache_dir, "aesthetic_predictor/model.pth")
-            download_model(url=args.aesthetic_predictor_model_url, output_path=model_path)
-            evaluator = AestheticPredictorEvaluator(device, model_path)
+            evaluator = AestheticPredictorEvaluator(device, args.aesthetic_predictor_model_url)
         elif metric == "human_preference_score":
-            model_path = os.path.join(args.cache_dir, "human_preference_score/model.pth")
-            download_model(url=args.human_preference_score_model_url, output_path=model_path)
-            evaluator = HumanPreferenceScoreEvaluator(device, model_path)
+            evaluator = HumanPreferenceScoreEvaluator(device, args.human_preference_score_model_url)
         else:
+            metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
-        if isinstance(evaluator, BaseReferenceFreeEvaluator):
-            computed_metric = evaluator.evaluate(generated_images, prompts)
-        else:
-            assert isinstance(evaluator, BaseWithReferenceEvaluator)
-            computed_metric = evaluator.evaluate(generated_images, real_images)
+        if not (evaluator.should_trigger_for_data(generated_images) and
+                not metric in metrics_explicitly_specified):
+            logging.warning(f"Skipping metric {metric} as it is not useful for the given images.")
+            continue
 
-        for key, value in computed_metric.items():
-            if isinstance(value, torch.Tensor):
-                computed_metrics.append([key, value.item()])
-            elif isinstance(value, tuple):
-                computed_metrics.append([key, [metric.item() for metric in value]])
-            elif isinstance(value, float):
-                computed_metrics.append([key, value])
-            else:
-                raise RuntimeError(f"Unexpected type for computed metric: {type(computed_metric)}")
+        logging.info(f"Computing metric {metric}...")
+        computed_metrics = evaluator.evaluate(generated_images,
+                                              real_images=real_images,
+                                              prompts=prompts)
+        all_computed_metrics.update(computed_metrics)
 
     # Print all results
-    print(tabulate(computed_metrics, headers=["Metric Name", "Value"], tablefmt="orgtbl"))
+    print(tabulate(all_computed_metrics.items(),
+                   headers=["Metric Name", "Value"],
+                   tablefmt="orgtbl"))
 
 
 if __name__ == "__main__":
-    main()
+    # If we don't explicitly mark all models for inference, Huggingface seems to hold on to some
+    # object references even after they're not needed anymore (perhaps to keep gradients around),
+    # which causes this script to OOM when multiple evaluators are run in a sequence.
+    # See https://github.com/huggingface/transformers/issues/26275.
+    with torch.inference_mode():
+        main()
