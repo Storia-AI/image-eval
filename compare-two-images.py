@@ -62,6 +62,9 @@ def main():
 
 
 if __name__ == "__main__":
-    # https://github.com/huggingface/transformers/issues/26275
+    # If we don't explicitly mark all models for inference, Huggingface seems to hold on to some
+    # object references even after they're not needed anymore (perhaps to keep gradients around),
+    # which causes this script to OOM when multiple evaluators are run in a sequence.
+    # See https://github.com/huggingface/transformers/issues/26275.
     with torch.inference_mode():
         main()

@@ -122,6 +122,7 @@ class InsightFaceEncoder(BaseEncoder):
                 embeddings.append(np.zeros(self.EMBEDDING_SIZE))
             all_embeddings.append(np.mean(np.array(embeddings), axis=0))
 
+        all_embeddings = np.stack(all_embeddings, axis=0)
         return torch.tensor(all_embeddings, dtype=torch.float32).to(self.device)
 
 

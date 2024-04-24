@@ -1,7 +1,9 @@
 """
-pytest evaluators_test.py --log-cli-level=INFO
+To run this test:
 
-Make sure to `pip install pytest` beforehand.
+pip install pytest
+export PYTHONPATH=$PYTHONPATH:/path/to/parent/of/image-eval
+pytest evaluators_test.py --log-cli-level=INFO
 """
 import logging
 import torch
@@ -81,7 +83,8 @@ class TestEvaluators(unittest.TestCase):
 
             # The same evaluator might return multiple metrics.
             for similar_key, similar_value in results_similar.items():
-                # Skip the FaceEncoder, since it won't recognize a human face in the dog picture.
+                # TODO(julia & vlad): Figure out why insightface often fails or returns an empty
+                # result even on pictures with human faces.
                 if "insightface" in similar_key:
                     continue
 
@@ -107,7 +110,8 @@ class TestEvaluators(unittest.TestCase):
             results_diverse = evaluator.evaluate([img_julie1, img_other])
 
             for key_not_diverse, value_not_diverse in results_not_diverse.items():
-                # Skip the FaceEncoder, since it won't recognize a human face in the dog picture.
+                # TODO(julia & vlad): Figure out why insightface often fails or returns an empty
+                # result even on pictures with human faces.
                 if "insightface" in key_not_diverse:
                     continue
 

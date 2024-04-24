@@ -200,7 +200,8 @@ def main():
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
-        if not evaluator.is_useful(generated_images) and not metric in metrics_explicitly_specified:
+        if not (evaluator.should_trigger_for_data(generated_images) and
+                not metric in metrics_explicitly_specified):
             logging.warning(f"Skipping metric {metric} as it is not useful for the given images.")
             continue
 
@@ -217,6 +218,9 @@ def main():
 
 
 if __name__ == "__main__":
-    # https://github.com/huggingface/transformers/issues/26275
+    # If we don't explicitly mark all models for inference, Huggingface seems to hold on to some
+    # object references even after they're not needed anymore (perhaps to keep gradients around),
+    # which causes this script to OOM when multiple evaluators are run in a sequence.
+    # See https://github.com/huggingface/transformers/issues/26275.
     with torch.inference_mode():
         main()
