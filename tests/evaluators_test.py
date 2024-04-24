@@ -9,9 +9,6 @@ import logging
 import torch
 import unittest
 
-import sys
-sys.path.append("../image_eval")
-
 from PIL import Image
 from image_eval.evaluators import (
     AestheticPredictorEvaluator,
