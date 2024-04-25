@@ -8,16 +8,24 @@ import torch
 from PIL import Image
 from tabulate import tabulate
 
-from image_eval.evaluators import AestheticPredictorEvaluator
-from image_eval.evaluators import CLIPScoreEvaluator
-from image_eval.evaluators import CMMDEvaluator
-from image_eval.evaluators import EvaluatorType
-from image_eval.evaluators import FIDEvaluator
-from image_eval.evaluators import HumanPreferenceScoreEvaluator
-from image_eval.evaluators import ImageRewardEvaluator
-from image_eval.evaluators import InceptionScoreEvaluator
-from image_eval.evaluators import StyleSimilarityEvaluator
-from image_eval.evaluators import VendiScoreEvaluator
+from image_eval.evaluators import (
+    AestheticPredictorEvaluator,
+    CLIPScoreEvaluator,
+    CMMDEvaluator,
+    EvaluatorType,
+    FIDEvaluator,
+    HumanPreferenceScoreEvaluator,
+    ImageRewardEvaluator,
+    InceptionScoreEvaluator,
+    StyleSimilarityEvaluator,
+    VendiScoreEvaluator
+)
+from image_eval.pairwise_evaluators import (
+    LPIPSEvaluator,
+    MultiSSIMEvaluator,
+    PSNREvaluator,
+    UIQIEvaluator
+)
 
 from streamlit.web import cli as stcli
 from typing import Dict
@@ -79,7 +87,35 @@ METRIC_NAME_TO_EVALUATOR = {
         "evaluator": VendiScoreEvaluator,
         "description": "This metric evaluates how diverse the generated image set is. We suggest generating all images with the same prompt."
                        "See https://arxiv.org/abs/2210.02410.",
-    }
+    },
+    "lpips_score": {
+        "evaluator": LPIPSEvaluator,
+        "description": "Calculates Learned Perceptual Image Patch Similarity (LPIPS) score as the distance between the "
+        "activations of two image patches for some deep network (VGG). The score is between 0 and 1, where 0 means the "
+        "images are identical. See https://arxiv.org/pdf/1801.03924.",
+    },
+    "multi_ssime_score": {
+        "evaluator": MultiSSIMEvaluator,
+        "description": "Calculates Multi-scale Structural Similarity Index Measure (SSIM). This is an extension of "
+        "SSIM, which assesses the similarity between two images based on three components: luminance, contrast, and "
+        "structure. The score is between -1 and 1, where 1 = perfect similarity, 0 = no similarity and "
+        "-1 = perfect anti-corelation. See https://ieeexplore.ieee.org/document/1292216.",
+    },
+    "psnr_score": {
+        "evaluator": PSNREvaluator,
+        "description": "Calculates Peak Signal-to-Noise Ratio (PSNR). It was originally designed to measure the "
+        "quality of reconstructed or compressed images compared to their original versions. Its values are between "
+        "-infinity and +infinity, where identical images score +infinity. See "
+        "https://ieeexplore.ieee.org/document/1163711.",
+    },
+    "uiqi_score": {
+        "evaluator": UIQIEvaluator,
+        "description": "Calculates Universal Image Quality Index (UIQI). Based on the idea of comparing statistical "
+        "properties of an original and a distorted image in both the spatial and frequency domains. The calculation "
+        "involves several steps, including the computation of mean, variance, and covariance of the pixel values in "
+        "local windows of the images. It also considers factors like luminance, contrast, and structure. See "
+        "https://ieeexplore.ieee.org/document/1284395.",
+    },
 }
 
 
@@ -88,14 +124,17 @@ def read_args():
     parser.add_argument("--metrics", "-m",
                         default="all",
                         help="valid values are: (1) all, (2) one of the following categories: image_quality, "
-                             "controllability, fidelity, diversity, or (3) a comma-separated list of metric names, "
-                             "for example: clip_score,style_similarity.",
+                             "controllability, fidelity, pairwise_similarity, diversity, or (3) a comma-separated list "
+                             "of metric names, for example: clip_score,style_similarity.",
                         type=str)
     parser.add_argument("--generated-images", "-g",
-                        help="path to directory containing generated images to evaluate",
+                        help="path to directory containing generated images to evaluate; for pairwise_similarity, "
+                             "-g and -r need to have the same number of images with the same filenames.",
                         type=str,
                         required=True)
-    parser.add_argument("--real-images", "-r", help="path to directory containing real images to use for evaluation",
+    parser.add_argument("--real-images", "-r",
+                        help="path to directory containing real images to use for evaluation; for pairwise_similarity, "
+                             "-g and -r need to have the same number of images with the same filenames.",
                         type=str)
     parser.add_argument("--prompts", "-p", help="path to file containing mapping from image to associated prompt",
                         type=str)
@@ -119,6 +158,7 @@ def read_args():
 def read_images(image_dir: str) -> Dict[str, Image.Image]:
     """Reads all the images in a given folder."""
     images = {}
+    # It's important to sort the filenames for pairwise similarity metrics.
     image_filenames = sorted(os.listdir(image_dir))
     for image_filename in image_filenames:
         image_path = os.path.join(image_dir, image_filename)
@@ -135,9 +175,13 @@ def read_images(image_dir: str) -> Dict[str, Image.Image]:
 def read_prompts_for_images(images_by_filename: Dict[str, Image.Image], prompts_path: str):
     images = []
     prompts = []
+
     with open(prompts_path, "r") as f:
         prompts_by_image_filename = json.load(f)
-    for image_filename, prompt in prompts_by_image_filename.items():
+        # It's important to sort the filenames for pairwise similarity metrics.
+        prompts_by_image_filename = sorted(prompts_by_image_filename.items(), key=lambda x: x[0])
+
+    for image_filename, prompt in prompts_by_image_filename:
         image = images_by_filename.get(image_filename)
         if image:
             images.append(image)
@@ -165,7 +209,11 @@ def main():
 
     metrics_explicitly_specified = []
     if args.metrics == "all":
-        args.metrics = ",".join(METRIC_NAME_TO_EVALUATOR.keys())
+        # We exclude PAIRWISE_SIMILARITY metrics from here and only calculate them when explicilty
+        # specified by the user, as they require aligned datasets.
+        metrics = [name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
+                   if metric["evaluator"].TYPE != EvaluatorType.PAIRWISE_SIMILARITY]
+        args.metrics = ",".join(metrics)
     elif args.metrics in [member.name.lower() for member in EvaluatorType]:
         args.metrics = ",".join([
             name for name, metric in METRIC_NAME_TO_EVALUATOR.items()
@@ -200,7 +248,7 @@ def main():
             metric_evaluator = METRIC_NAME_TO_EVALUATOR[metric]["evaluator"]
             evaluator = metric_evaluator(device)
 
-        if not (evaluator.should_trigger_for_data(generated_images) and
+        if (not evaluator.should_trigger_for_data(generated_images) and
                 not metric in metrics_explicitly_specified):
             logging.warning(f"Skipping metric {metric} as it is not useful for the given images.")
             continue
