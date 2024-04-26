@@ -34,8 +34,13 @@ class EvaluatorType(Enum):
     # models rather than foundational ones (e.g. vanilla Stable Diffusion).
     FIDELITY = 3
 
+    # The pairwise similarity between two sets of images. While FIDELITY allows the two sets to have
+    # different sizes and makes bulk comparisons, PAIRWISE_SIMILARITY requires a 1:1 correspondence
+    # between images and makes pairwise comparisons.
+    PAIRWISE_SIMILARITY = 4
+
     # The variety of images that are produced from a single or a set of prompts.
-    DIVERSITY = 4
+    DIVERSITY = 5
 
 
 class BaseEvaluator(abc.ABC):
