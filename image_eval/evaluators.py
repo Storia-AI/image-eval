@@ -252,24 +252,19 @@ class HumanPreferenceScoreEvaluator(BaseEvaluator):
                  generated_images: list[Image.Image],
                  prompts: list[str],
                  **ignored_kwargs) -> Dict[str, float]:
-        # Returns the average human preference score
-        scores = []
-        # TODO (mihail): Batch the inputs for faster processing
-        for pil_img, prompt in zip(generated_images, prompts):
-            image = self.preprocess(pil_img).unsqueeze(0).to(self.device)
-            text = clip.tokenize([prompt]).to(self.device)
-            with torch.no_grad():
-                image_features = self.model.encode_image(image)
-                text_features = self.model.encode_text(text)
+        images = [self.preprocess(img).to(self.device) for img in generated_images]
+        images = torch.stack(images)
+        texts = clip.tokenize(prompts, truncate=True).to(self.device)
 
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        image_features = self.model.encode_image(images)
+        text_features = self.model.encode_text(texts)
 
-                hps = image_features @ text_features.T
-                hps = hps.diagonal()
-                scores.append(hps.squeeze().tolist())
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
-        return {"human_preference_score": sum(scores) / len(scores)}
+        hps = image_features @ text_features.T
+        hps = hps.diagonal()
+        return {"human_preference_score": torch.mean(hps).detach().item()}
 
 
 class VendiScoreEvaluator(BaseEvaluator):
