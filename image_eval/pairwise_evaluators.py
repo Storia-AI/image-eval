@@ -44,9 +44,6 @@ class PairwiseSimilarityEvaluator(BaseEvaluator):
                  **unused_kwargs) -> Dict[str, float]:
         if len(generated_images) != len(real_images):
             raise ValueError("Pairwise evaluators expect 1:1 pairs of generated/real images.")
-        else:
-            import logging
-            logging.info(f"Comparing {len(generated_images)} pairs of images.")
 
         img_transforms = [transforms.Resize((256, 256)), transforms.ToTensor()]
         if self.normalize:
@@ -58,8 +55,6 @@ class PairwiseSimilarityEvaluator(BaseEvaluator):
 
         generated_images = torch.stack(generated_images).to(self.device)
         real_images = torch.stack(real_images).to(self.device)
-        logging.info("Mean delta:")
-        logging.info(torch.mean(generated_images - real_images))
 
         score = self.metric(generated_images, real_images).detach().item()
         return {self.metric_name: score}
