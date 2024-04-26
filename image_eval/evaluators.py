@@ -241,12 +241,18 @@ class ImageRewardEvaluator(BaseEvaluator):
 class HumanPreferenceScoreEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.CONTROLLABILITY
     HIGHER_IS_BETTER = True
-    DEFAULT_URL = "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW"
+    DEFAULT_URL = "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?download=1"
 
     def __init__(self, device: str, model_url: str = DEFAULT_URL):
         super().__init__(device)
-        self.model_path = download_model(model_url, "human_preference_score.pth")
+        self.hps_model_path = download_model(model_url, "human_preference_score.pt")
         self.model, self.preprocess = clip.load("ViT-L/14", device=self.device)
+
+        if torch.cuda.is_available():
+            params = torch.load(self.hps_model_path)['state_dict']
+        else:
+            params = torch.load(self.hps_model_path, map_location=self.device)['state_dict']
+        self.model.load_state_dict(params)
 
     def evaluate(self,
                  generated_images: list[Image.Image],

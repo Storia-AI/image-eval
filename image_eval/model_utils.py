@@ -23,10 +23,14 @@ def download_model(url: str, output_filename: str, output_dir: str = "~/.cache")
     output_dir = os.path.dirname(output_path)
     os.makedirs(output_dir, exist_ok=True)
 
-    response = requests.get(url)
+    response = requests.get(url, stream=True)
     if not response.status_code == 200:
         raise RuntimeError(f"Unable to download model from {url}.")
 
     with open(output_path, "wb") as f:
-        f.write(response.content)
+        # Iterate over the response content in chunks
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+
     return output_path

@@ -147,10 +147,10 @@ def read_args():
     parser.add_argument("--model-predictions-json",
                         help="path to json file containing model predictions")
     parser.add_argument("--aesthetic-predictor-model-url",
-                        default="https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth",
+                        default=AestheticPredictorEvaluator.DEFAULT_URL,
                         help="Model checkpoint for the aesthetic predictor evaluator.")
     parser.add_argument("--human-preference-score-model-url",
-                        default="https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW",
+                        default=HumanPreferenceScoreEvaluator.DEFAULT_URL,
                         help="Model checkpoint for the human preference score evaluator.")
     return parser.parse_args()
 
