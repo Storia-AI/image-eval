@@ -53,7 +53,7 @@ Here are the metrics we currently support:
 | `image_reward` | controllability | [paper](https://arxiv.org/pdf/2304.05977.pdf) |
 | `human_preference_score` | controllability | [repo](https://tgxs002.github.io/align_sd_web/) |
 | `vendi_score` | diversity | [paper](https://arxiv.org/abs/2210.02410) |
-| `fid` | image quality | [paper](https://arxiv.org/abs/1512.00567) |
+| `fid` | image quality | [paper](https://arxiv.org/pdf/1706.08500) |
 | `inception_score` | image quality | [paper](https://arxiv.org/abs/1606.03498) |
 | `aesthetic_predictor` | image quality | [repo](https://github.com/christophschuhmann/improved-aesthetic-predictor) |
 
