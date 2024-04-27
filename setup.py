@@ -9,7 +9,7 @@ def readfile(filename):
 
 setup(
     name="image-eval",
-    version="0.1.3",
+    version="0.1.6",
     description="A library for evaluating image generation models",
     long_description=readfile("README.md"),
     long_description_content_type="text/markdown",
