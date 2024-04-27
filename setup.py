@@ -9,7 +9,7 @@ def readfile(filename):
 
 setup(
     name="image-eval",
-    version="0.1.6",
+    version="0.1.8",
     description="A library for evaluating image generation models",
     long_description=readfile("README.md"),
     long_description_content_type="text/markdown",
@@ -23,8 +23,5 @@ setup(
             "image_eval= eval:main"
         ]
     },
-    install_requires=(
-        [line for line in open("requirements.txt").readlines() if not line.startswith("git")] +
-        ["clip @ git+https://github.com/openai/CLIP.git"]
-    ),
+    install_requires=open("requirements.txt").readlines(),
 )

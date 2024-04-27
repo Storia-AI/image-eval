@@ -123,7 +123,7 @@ class InceptionScoreEvaluator(BaseEvaluator):
 
 
 class FIDEvaluator(BaseEvaluator):
-    TYPE = EvaluatorType.FIDELITY
+    TYPE = EvaluatorType.IMAGE_QUALITY
     HIGHER_IS_BETTER = False
 
     def __init__(self, device: str):
