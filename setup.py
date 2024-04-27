@@ -9,12 +9,12 @@ def readfile(filename):
 
 setup(
     name="image-eval",
-    version="0.1.2",
+    version="0.1.6",
     description="A library for evaluating image generation models",
     long_description=readfile("README.md"),
     long_description_content_type="text/markdown",
     author="Storia AI",
-    author_email="mihail@storia.ai",
+    author_email="founders@storia.ai",
     py_modules=["eval"],
     license=readfile("LICENSE"),
     packages=find_packages(include=["image_eval", "image_eval.*"]),
@@ -23,15 +23,8 @@ setup(
             "image_eval= eval:main"
         ]
     },
-    install_requires=[
-        "image-reward==1.5",
-        "lpips==0.1.4",
-        "networkx==3.1",
-        "piq==0.8.0",
-        "pytorch-lightning==2.0.8",
-        "streamlit==1.26.0",
-        "sympy==1.12",
-        "tabulate==0.9.0",
-        "torch-fidelity==0.3.0",
-    ]
+    install_requires=(
+        [line for line in open("requirements.txt").readlines() if not line.startswith("git")] +
+        ["clip @ git+https://github.com/openai/CLIP.git"]
+    ),
 )

@@ -1,48 +1,78 @@
-# Image Eval
+# Evaluation for Text-to-Image Models
 
 ## What is this?
 
-**TL;DR**: A Python library providing utilities to evaluate your favorite text-to-image generation models (Stable Diffusion, Midjourney, and any custom models you may have).
+**TL;DR**: A Python library providing utilities to evaluate text-to-image (T2I) models. It complements established benchmarks like [HEIM](https://crfm.stanford.edu/helm/heim/latest/) by focusing on metrics that help developers fine-tune T2I models for a particular style or concept.
 
-| Metric Name            |     Value |
-|------------------------|-----------|
-| clip_score             | 22.5958   |
-| aesthetic_predictor    |  6.03433  |
-| image_reward           | -0.661022 |
-| human_preference_score |  0.196004 |
-| fid                    | \[11.214, 57.471, 4.10, 442.811\] |
-| inception_score        | \[1.0, 0.0\] |
+Running it is as easy as:
+```
+pip install image-eval
+image-eval -g <generated-dataset> -r <reference-dataset> -p <prompts-file> -m all
+```
+See the [installation section](#installation) for more detailed instructions.
+
+## Motivation
+
+Image quality is subjective, and evaluating text-to-image (T2I) models is hard. But we can't make progress without being able to *measure* progress. We need standardized and robust tooling.
+
+Training T2I models is particularly difficult because there are no metrics to inform you whether your model is converging. For instance, this is what a typical training loss looks like:
+
+<img src="assets/jumpy_loss.png" width=500 />
+
+The goal of this repo is to bring back measurability and help you make informed decisions when building T2I models. For instance, we discovered that using [CMMD](https://arxiv.org/abs/2312.05412) as a validation metric during training on as little as 50 images can help you gauge how much progress your model is making. The plot shows the distance between a reference set and the generated set for various checkpoints:
+
+<img src="assets/cmmd.png" width=500 />
+
+Read more about our discoveries in the [Tips and Tricks](#tips-and-tricks) section, which we will update as we learn more.
+
+## Evaluation Metrics
+
+### Categories
+We use the following categories for our metrics, inspired by [LyCORIS](https://arxiv.org/abs/2309.14859):
+
+1. **Fidelity**: the extent to which generated images adhere to the target concept.
+2. **Pairwise similarity** between two images; in contrast, fidelity makes bulk comparisons between two datasets.
+3. **Controllability**: the model’s ability to generate images that align well with text prompts.
+4. **Diversity**: the variety of images that are produced from a single or a set of prompts.
+5. **Image quality**: the visual appeal of the generated images (naturalness, absence of artifacts or deformations).
+
+We dared to list these aspects in the order in which we believe they can be meaningfully measured. Measuring the *fidelity* of one dataset to another is a much better-defined problem than measuring a universal and elusive *image quality*.
+
+### Metrics
+Here are the metrics we currently support:
+
+| Metric name | Category | Source |
+|------------ | -------- | ----------- |
+| `centroid_similarity` | fidelity | ours |
+| `cmmd` | fidelity | [paper](https://arxiv.org/abs/2401.09603) |
+| `lpips` | pairwise similarity | [paper](https://arxiv.org/pdf/1801.03924) |
+| `multi_ssim` | pairwise similarity | [paper](https://ieeexplore.ieee.org/document/1292216) |
+| `psnr` | pairwise similarity | [paper](https://ieeexplore.ieee.org/document/1163711) |
+| `uiqui` | pairwise similarity | [paper](https://ieeexplore.ieee.org/document/1284395) |
+| `clip_score` | controllability | [paper](https://arxiv.org/abs/2104.08718) |
+| `image_reward` | controllability | [paper](https://arxiv.org/pdf/2304.05977.pdf) |
+| `human_preference_score` | controllability | [repo](https://tgxs002.github.io/align_sd_web/) |
+| `vendi_score` | diversity | [paper](https://arxiv.org/abs/2210.02410) |
+| `fid` | image quality | [paper](https://arxiv.org/pdf/1706.08500) |
+| `inception_score` | image quality | [paper](https://arxiv.org/abs/1606.03498) |
+| `aesthetic_predictor` | image quality | [repo](https://github.com/christophschuhmann/improved-aesthetic-predictor) |
+
+### Encoders
+Some of the metrics above rely on image embeddings in a modular way -- even though they were originally published using CLIP embeddings, we noticed that swapping embeddings might lead to better metrics in certain cases. We allow you to mix and match the metrics above with the following:
+
+1. **[CLIP](https://arxiv.org/abs/2103.00020)** is by far the most popular encoder. It was used by the original Stable Diffusion model.
+2. **[DINOv2](https://arxiv.org/abs/2304.07193)**. Compared to CLIP, which used text-guided pretraining (aligning images against captions), DINOv2 used self-supervised learning on images alone. Its training objective maximizes agreement between different patches within the same image. It was trained on a dataset of 142M automatically curated images.
+3. **[ConvNeXt V2](https://arxiv.org/abs/2301.00808)**. Similarly to DINOv2, ConvNeXt V2 did not use text-guided pretraining. It was trained on an image dataset to recover masked patches. In contrast to DINOv2 (which uses a ViT), ConvNeXt V2 uses a convolutional architecture. ConvNeXtV2 is the successor of [MAE](https://arxiv.org/abs/2111.06377) (Masked Auto Encoder) embeddings.
+4. **[InsightFace](https://insightface.ai/)** is particularly good at encoding human faces, and is very effective when fine-tuning T2I models for headshots.
+
+## GUI
+We also provide a simple and ready-to-use [Streamlit](https://streamlit.io/) interface for performing human evaluation of model outputs on your local machine. We recommend to use this when the automated metrics are just not discriminative enough to help you decide betwen two checkpoints.
 
 ![Human eval](assets/human_eval.gif)
 
-## So, why should I care?
+## <a name="installation"></a>Installation
 
-Since the advent of systems such as [Stable Diffusion](https://stability.ai/blog/stable-diffusion-public-release), [Midjourney](https://www.midjourney.com/home/), and [DallE-2](https://openai.com/dall-e-2) text-to-image generation models have taken the world by storm.
-
-However, evaluation of the quality of these systems still remains one of the
-hardest challenges in continuing to improve them as there is a lack of standardization and robust tooling.
-
-If we can't all agree on a set of practices for evaluating these systems, how can we push the state-of-the-art?
-
-This library provides a suite of widely accepted metrics for evaluating them as well as an easy-to-use interface for performing human
-evaluation of image generation model outputs.
-
-## Cute, but what are you actually doing?
-
-We provide six standard automated evaluation metrics out-of-the-box including:
-- [CLIP Score](https://arxiv.org/abs/2104.08718)
-- [Inception Score](https://arxiv.org/abs/1606.03498)
-- [FID](https://arxiv.org/abs/1512.00567)
-- [Aesthetic Predictor](https://github.com/christophschuhmann/improved-aesthetic-predictor)
-- [Image Reward](https://arxiv.org/pdf/2304.05977.pdf)
-- [Human Preference Score](https://tgxs002.github.io/align_sd_web/)
-
-We also provide a simple and ready-to-use [Streamlit](https://streamlit.io/) interface for performing human evaluation of model outputs on your local machine.
-
-
-## Installation
-
-This library has been tested on Python 3.9.12. Installing the library involves running:
+This library has been tested on Python 3.10.9. To install:
 ```
 pip install image-eval
 ```
@@ -56,17 +86,13 @@ pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url http
 
 There are two ways to interact with the `image-eval` library: either through the CLI or through the API.
 
-### CLI
+### CLI for automated evaluation
 
-You can invoke all the metric computations through the CLI once you've `pip install`'d the library. The library makes certain assumptions about the format of the inputs to the CLI.
+Once you installed the library, you can invoke it through the CLI on your terminal via `image_eval <flags>`. The full list of flags is in [eval.py](eval.py), but here are the most important ones:
 
-For example, if you want to calculate a metric assessing the match between
-prompts and generated images (as is the case with `clip_score`), you would invoke:
-```
-image_eval -m clip_score -p /path/to/image_to_prompt.json -g /path/to/folder/with/generated/images
-```
-
-Here `image_to_prompt.json` is a JSON file with the following format:
+- `-g` should point to a folder of generated images
+- `-r` should point to a folder of reference images
+- `-p` (needed for controllability metrics only) should point to a `.json` file that stores `image_filename: prompt` pairs, for instance:
 ```
 {
     "image_1.jpg": "prompt for image 1",
@@ -74,24 +100,32 @@ Here `image_to_prompt.json` is a JSON file with the following format:
     ...
 }
 ```
+- `-m` should specify the desired metrics; it can be `all`, a certain category (e.g. `fidelity`) or a specific metric (e.g `centroid_similarity`).
 
-where `image_1.jpg` and `image_2.jpg` are the names of the generated images in the folder specified by the `-g` flag.
+For example, to calculate the fidelity of a generated dataset to some reference images, you would run
+```
+image_eval -m fidelity -g /path/to/generated/images -r /path/to/reference/images
+```
+The result will look like this:
+```
+| Metric Name                     |    Value |
+|---------------------------------+----------|
+| centroid_similarity_clip        | 0.844501 |
+| centroid_similarity_dino_v2     | 0.573843 |
+| centroid_similarity_convnext_v2 | 0.606375 |
+| centroid_similarity_insightface | 0.488649 |
+| cmmd_clip                       | 0.162164 |
+| cmmd_dino_v2                    | 0.1689   |
+| cmmd_convnext_v2                | 0.187492 |
+| cmmd_insightface                | 0.169578 |
+```
 
-If you want to calculate a metric assessing the match between generated images and a set of reference images (as is the case with `fid`), you would invoke:
-```
-image_eval -m fid -g /path/to/generated/images -r /path/to/real/images
-```
+### CLI for human evaluation
 
-You can also compute multiple metrics simultaneously by passing in a comma-separated list of metrics to the `-m` flag:
-```
-image_eval -m clip_score,fid -p /path/to/image_to_prompt.json -g /path/to/generated/images -r /path/to/real/images
-```
-
-If you want to launch the human evaluation interface, you would invoke:
+To launch the human evaluation interface, run:
 ```
 image_eval --local-human-eval --model-predictions-json /path/to/model_comparisons.json
 ```
-
 Here `model_comparisons.json` is a JSON file with the following format:
 ```
 [
@@ -117,7 +151,7 @@ NOTE: When you click `Compute Model Wins` a local file named `scores.json` will 
 
 ### Programmatic
 
-You can also interact with the library through the API directly. For example if you want to invoke the `clip_score` metric, you would do the following:
+You can also interact with the library through the API directly. For example, to invoke the `clip_score` metric, you could do the following:
 ```
 from image_eval.evaluators import CLIPScoreEvaluator
 
@@ -127,18 +161,20 @@ prompts = ["random prompt" * 10]
 evaluator.evaluate(images, prompts)
 ```
 
-It's that simple!
+## <a name="tips-and-tricks"></a>Tips and Tricks
+In this section, we will share our tips on how to use existing metrics to bring some rigor to the art of fine-tuning T2I models. Please don't take anything as an absolute truth. If we knew things for sure, we would be writing a paper instead of a Github README. Suggestions and constructive feedback are more than welcome!
+
+[TODO]
 
 ## Contributing
 
-We welcome any and all contributions to this library! We have a wishlist of items we'd like to add to the library [here](#roadmap).
+We welcome any and all contributions to this library, as well as discussions on how we can make the art of training T2I models more scientific.
 
-### How to add your own automated metric
+To add a new **metric**, all you need to do is create a new class that inherits from the `BaseEvaluator` and implements the `evaluate` method. For examples of how our current metrics implement this contract, see `evaluators.py`.
 
-We designed the library to make it easy to add your own automated metric. All you need to do is create a new class that inherits from the `BaseReferenceFreeEvaluator` or `BaseWithReferenceEvaluator` class and implements the `evaluate` method.
+To add a new **encoder**, simply implement the `BaseEncoder` interface (see `encoders.py`).
 
-For examples of how our current metrics implement this contract, see `evaluators.py`.
-
-### Roadmap
-- [ ] Make it easy to launch remote human evaluation task using [AWS Groundtruth](https://aws.amazon.com/sagemaker/data-labeling/)
-- [ ] Add ability to log metrics to [WandB](https://wandb.ai/site)
+## Other Resources
+Here are other notable resources for evaluating T2I models:
+- [HEIM](https://crfm.stanford.edu/helm/heim/latest/)
+- [T2I-Compbench](https://github.com/Karine-Huang/T2I-CompBench)

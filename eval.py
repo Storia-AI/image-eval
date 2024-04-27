@@ -17,7 +17,7 @@ from image_eval.evaluators import (
     HumanPreferenceScoreEvaluator,
     ImageRewardEvaluator,
     InceptionScoreEvaluator,
-    StyleSimilarityEvaluator,
+    CentroidSimilarityEvaluator,
     VendiScoreEvaluator
 )
 from image_eval.pairwise_evaluators import (
@@ -39,8 +39,8 @@ METRIC_NAME_TO_EVALUATOR = {
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
-    "style_similarity": {
-        "evaluator": StyleSimilarityEvaluator,
+    "centroid_similarity": {
+        "evaluator": CentroidSimilarityEvaluator,
         "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
                        "and the generated images. The score is bound between 0 and 1, with 1 being the best score. "
                        "The purpose of the metric is to measure how in-style generated images are, compared to the real ones."
@@ -147,10 +147,10 @@ def read_args():
     parser.add_argument("--model-predictions-json",
                         help="path to json file containing model predictions")
     parser.add_argument("--aesthetic-predictor-model-url",
-                        default="https://github.com/christophschuhmann/improved-aesthetic-predictor/raw/main/sac+logos+ava1-l14-linearMSE.pth",
+                        default=AestheticPredictorEvaluator.DEFAULT_URL,
                         help="Model checkpoint for the aesthetic predictor evaluator.")
     parser.add_argument("--human-preference-score-model-url",
-                        default="https://mycuhk-my.sharepoint.com/:u:/g/personal/1155172150_link_cuhk_edu_hk/EWDmzdoqa1tEgFIGgR5E7gYBTaQktJcxoOYRoTHWzwzNcw?e=b7rgYW",
+                        default=HumanPreferenceScoreEvaluator.DEFAULT_URL,
                         help="Model checkpoint for the human preference score evaluator.")
     return parser.parse_args()
 
