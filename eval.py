@@ -17,7 +17,7 @@ from image_eval.evaluators import (
     HumanPreferenceScoreEvaluator,
     ImageRewardEvaluator,
     InceptionScoreEvaluator,
-    StyleSimilarityEvaluator,
+    CentroidSimilarityEvaluator,
     VendiScoreEvaluator
 )
 from image_eval.pairwise_evaluators import (
@@ -39,8 +39,8 @@ METRIC_NAME_TO_EVALUATOR = {
                        "an image and the textual CLIP embedding for a caption. The score is bound between 0 and "
                        "100 with 100 being the best score. For more info, check out https://arxiv.org/abs/2104.08718"
     },
-    "style_similarity": {
-        "evaluator": StyleSimilarityEvaluator,
+    "centroid_similarity": {
+        "evaluator": CentroidSimilarityEvaluator,
         "description": "This metric reflects the average cosine similarity between the cluster center of reference images "
                        "and the generated images. The score is bound between 0 and 1, with 1 being the best score. "
                        "The purpose of the metric is to measure how in-style generated images are, compared to the real ones."

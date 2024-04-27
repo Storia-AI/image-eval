@@ -73,7 +73,7 @@ class CLIPScoreEvaluator(BaseEvaluator):
         return {"clip_score": self.evaluator.compute().item()}
 
 
-class StyleSimilarityEvaluator(BaseEvaluator):
+class CentroidSimilarityEvaluator(BaseEvaluator):
     TYPE = EvaluatorType.FIDELITY
     HIGHER_IS_BETTER = True
 
@@ -94,7 +94,7 @@ class StyleSimilarityEvaluator(BaseEvaluator):
             generated_center = torch.mean(generated_embeddings, axis=0, keepdim=True)
             real_embeddings = encoder.encode(real_images)
             real_center = torch.mean(real_embeddings, axis=0, keepdim=True)
-            results[f"style_similarity_{encoder.id}"] = cos(generated_center, real_center).item()
+            results[f"centroid_similarity_{encoder.id}"] = cos(generated_center, real_center).item()
         return results
 
 
